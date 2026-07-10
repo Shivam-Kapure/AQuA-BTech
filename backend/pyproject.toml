@@ -1,0 +1,37 @@
+[project]
+name = "agentic-testing-backend"
+version = "0.1.0"
+description = "Backend for Agentic Testing System"
+requires-python = ">=3.11"
+
+dependencies = [
+    # Web Framework
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    # Database
+    "motor>=3.3.0",
+    "pymongo>=4.6.0",
+    # LLM & AI
+    "langchain>=0.1.5",
+    "langchain-community>=0.0.20",
+    "langchain-openai>=0.0.5",      # ← For LM Studio (OpenAI-compatible)
+    "openai>=1.12.0",                # ← LM Studio uses OpenAI API
+    "groq>=0.4.0",                   # Optional: Cloud fallback
+    # Vector DB & Embeddings
+    "chromadb>=0.4.22",
+    "sentence-transformers>=2.3.1",
+    # Browser Automation
+    "playwright>=1.41.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.1.0",
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.2",
+    "httpx>=0.26.0",
+    "python-multipart>=0.0.6",
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+]
