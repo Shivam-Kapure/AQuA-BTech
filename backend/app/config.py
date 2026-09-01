@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str | None = None
     LMSTUDIO_URL: str = "http://localhost:1234"
     LLM_PROVIDER: str = "lmstudio"  # "lmstudio" | "groq"
-    LLM_MODEL: str = "qwen2.5-coder:latest"
+    LLM_MODEL: str = "meta-llama-3-8b-instruct"
     LLM_TEMPERATURE: float = 0.2
     LLM_TIMEOUT_S: float = 180.0
     LLM_MAX_TOKENS: int | None = None

@@ -5,6 +5,7 @@ from app.api.v1 import test_generation
 from app.api.v1 import test_execution
 from app.api.v1 import test_run
 from app.api.v1 import test_cases
+from app.api.v1 import security_tests
 from app.api.v1 import projects
 from app.api.v1 import llm
 from app.api.v1 import auth
@@ -27,6 +28,12 @@ router.include_router(
     test_cases.router,
     prefix="/test-cases",
     tags=["Test Cases"],
+)
+
+router.include_router(
+    security_tests.router,
+    prefix="/security",
+    tags=["Security Tests"],
 )
 
 router.include_router(
