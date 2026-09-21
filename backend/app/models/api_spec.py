@@ -21,3 +21,19 @@ class ApiSpec(BaseModel):
     openapi_version: str
     base_urls: list[str] = Field(default_factory=list)
     operations: list[ApiOperation] = Field(default_factory=list)
+
+
+class ApiAssertion(BaseModel):
+    kind: str
+    expected: str | int | float | bool | None = None
+    path: str | None = None
+
+
+class ApiTestCase(BaseModel):
+    name: str
+    method: str
+    url: str
+    headers: dict[str, str] = Field(default_factory=dict)
+    query: dict[str, str] = Field(default_factory=dict)
+    body: dict | list | str | None = None
+    assertions: list[ApiAssertion] = Field(default_factory=list)

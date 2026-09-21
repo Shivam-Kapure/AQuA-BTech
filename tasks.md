@@ -33,11 +33,11 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
 - [ ] Implement OpenAPI upload/URL import with validation, size limits, and checksum/version tracking.
 - [x] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
-- [ ] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
-- [ ] Implement deterministic HTTP execution with `httpx` in the worker layer.
+- [x] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
+- [x] Implement deterministic HTTP execution with `httpx` in the worker layer.
 - [ ] Support URL/path/query/header/body templates and environment-safe variable substitution.
 - [ ] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
-- [ ] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
+- [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
 - [ ] Add setup/teardown and dependent-request support for authenticated workflows.
 - [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [ ] Add optional Postman collection import after OpenAPI support is stable.
