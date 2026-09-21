@@ -6,6 +6,12 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Agentic Test System"
     API_V1_PREFIX: str = "/api/v1"
+    APP_ENV: str = "development"
+    AUTH_SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    TARGET_HOST_ALLOWLIST: str = ""
+    ALLOW_PRIVATE_TARGETS: bool = False
+    HTTP_VERIFY_TLS: bool = True
 
     # Database
     MONGODB_URI: str = "mongodb://localhost:27017"
@@ -28,6 +34,8 @@ class Settings(BaseSettings):
     PLAYWRIGHT_SCRIPT_OUTPUT_DIR: str | None = "playwright_scripts"
     PLAYWRIGHT_ARTIFACTS_DIR: str = "playwright_artifacts"
     PLAYWRIGHT_RUN_TIMEOUT_S: float = 180.0
+    ZAP_IMAGE: str = "ghcr.io/zaproxy/zaproxy:stable"
+    ZAP_TIMEOUT_S: float = 300.0
 
     # Vector DB
     CHROMA_PATH: str = "data/chroma_db"

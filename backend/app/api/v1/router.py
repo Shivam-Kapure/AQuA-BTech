@@ -9,6 +9,7 @@ from app.api.v1 import security_tests
 from app.api.v1 import projects
 from app.api.v1 import llm
 from app.api.v1 import auth
+from app.api.v1 import api_specs
 
 router = APIRouter()
 
@@ -58,6 +59,12 @@ router.include_router(
     auth.router,
     prefix="/auth",
     tags=["Auth"],
+)
+
+router.include_router(
+    api_specs.router,
+    prefix="/api-specs",
+    tags=["API Specs"],
 )
 
 # Run a single test: /api/v1/{project_name}/{test_id}

@@ -1,10 +1,14 @@
 import httpx
 from typing import Any
 
+from app.config import settings
+from app.core.url_security import validate_target_url
+
 async def check_security_headers(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         headers = resp.headers
         missing = []
@@ -39,8 +43,9 @@ async def check_security_headers(url: str) -> dict[str, Any]:
 
 async def check_cookie_security(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         set_cookie_headers = resp.headers.get_list("set-cookie")
         if not set_cookie_headers:
@@ -88,13 +93,14 @@ async def check_input_validation(url: str, method: str, parameter: str) -> dict[
     # A generic, non-intrusive probe to see if basic payload is reflected unescaped or causes 500
     probe = "<aqua_probe>"
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
             if method.upper() == "POST":
                 data = {parameter: probe} if parameter else {}
-                resp = await client.post(url, data=data, follow_redirects=True)
+                resp = await client.post(url, data=data, follow_redirects=False)
             else:
                 params = {parameter: probe} if parameter else {}
-                resp = await client.get(url, params=params, follow_redirects=True)
+                resp = await client.get(url, params=params, follow_redirects=False)
                 
         if resp.status_code >= 500:
             return {
@@ -128,8 +134,9 @@ async def check_input_validation(url: str, method: str, parameter: str) -> dict[
 
 async def check_information_disclosure(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         headers = resp.headers
         disclosures = []
@@ -159,4 +166,39 @@ async def check_information_disclosure(url: str) -> dict[str, Any]:
             "finding": f"Could not complete information disclosure check: {str(e)}",
             "evidence": "",
             "recommendation": "Check target reachability."
+        }
+
+
+async def check_authentication_configuration(url: str) -> dict[str, Any]:
+    """Passive check that an endpoint does not expose protected data anonymously."""
+    try:
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            response = await client.get(url, follow_redirects=False)
+        if response.status_code in {401, 403}:
+            return {
+                "status": "PASS",
+                "finding": "Endpoint requires authentication or authorization.",
+                "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+                "recommendation": "Keep authentication enforcement enabled and test authorized roles separately.",
+            }
+        if response.status_code in {200, 206}:
+            return {
+                "status": "FAIL",
+                "finding": "Endpoint returned success to an anonymous request.",
+                "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+                "recommendation": "Require authentication before returning protected resources.",
+            }
+        return {
+            "status": "WARNING",
+            "finding": f"Authentication behavior was inconclusive (HTTP {response.status_code}).",
+            "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+            "recommendation": "Review endpoint access policy and validate with an authorized test account.",
+        }
+    except Exception as exc:
+        return {
+            "status": "WARNING",
+            "finding": f"Could not complete authentication configuration check: {exc}",
+            "evidence": "",
+            "recommendation": "Check target reachability and authentication configuration.",
         }

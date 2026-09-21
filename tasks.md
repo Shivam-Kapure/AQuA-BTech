@@ -5,16 +5,16 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P0 — Security and Platform Foundations
 
 - [x] Define the trust boundary and deployment threat model. See `aqua-threat-model.md`.
-- [ ] Implement real authentication with a password-hashing library (Argon2id or bcrypt).
-- [ ] Replace opaque, unverifiable login tokens with signed, expiring access tokens.
-- [ ] Add authentication dependencies to protected API routes.
-- [ ] Add project ownership and enforce authorization on every project-scoped operation.
+- [x] Implement real authentication with a password-hashing library (Argon2id or bcrypt).
+- [x] Replace opaque, unverifiable login tokens with signed, expiring access tokens.
+- [x] Add authentication dependencies to protected API routes.
+- [x] Add project ownership and enforce authorization on every project-scoped operation.
 - [ ] Add URL validation and an SSRF policy: approved schemes, host allow-list, blocked private/link-local ranges, redirect validation, and DNS-rebinding protections.
-- [ ] Remove `verify=False` from security HTTP clients; make TLS verification configurable only for local development.
-- [ ] Define how `X-Aqua-Route-Jwt` is validated and passed to target requests, or remove the frontend feature.
-- [ ] Prevent generated scripts and subprocesses from inheriting application secrets.
-- [ ] Choose `pyproject.toml` + `uv.lock` as the canonical Python dependency source and update/remove the incomplete `requirements.txt`.
-- [ ] Add `.env.example`; remove secrets and runtime artifacts from version control.
+- [x] Remove `verify=False` from security HTTP clients; make TLS verification configurable only for local development.
+- [x] Define how `X-Aqua-Route-Jwt` is validated and passed to target requests, or remove the frontend feature.
+- [x] Prevent generated scripts and subprocesses from inheriting application secrets.
+- [x] Choose `pyproject.toml` + `uv.lock` as the canonical Python dependency source and update/remove the incomplete `requirements.txt`.
+- [x] Add `.env.example`; remove secrets and runtime artifacts from version control.
 
 ## P1 — Shared Test and Run Domain
 
@@ -30,22 +30,27 @@ This is the proposed implementation backlog from the architecture review. Review
 
 ## P1 — API Testing Module
 
-- [ ] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
+- [x] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
 - [ ] Implement OpenAPI upload/URL import with validation, size limits, and checksum/version tracking.
-- [ ] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
-- [ ] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
-- [ ] Implement deterministic HTTP execution with `httpx` in the worker layer.
-- [ ] Support URL/path/query/header/body templates and environment-safe variable substitution.
-- [ ] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
-- [ ] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
-- [ ] Add setup/teardown and dependent-request support for authenticated workflows.
+- [x] Validate inline OpenAPI documents and compute stable checksums.
+- [x] Persist owner-scoped OpenAPI imports with versioned listing endpoints.
+- [x] Support URL-based OpenAPI import with SSRF and size validation.
+- [x] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
+- [x] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
+- [x] Implement deterministic HTTP execution with `httpx` in the worker layer.
+- [x] Expose an authenticated API test execution endpoint backed by the deterministic runner.
+- [x] Support URL/path/query/header/body templates and environment-safe variable substitution.
+- [x] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
+- [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
+- [x] Add setup/teardown and dependent-request support for authenticated workflows.
 - [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
-- [ ] Add optional Postman collection import after OpenAPI support is stable.
-- [ ] Add API run/list/detail endpoints and OpenAPI documentation for all contracts.
+- [x] Add optional Postman collection import after OpenAPI support is stable.
+- [x] Add API run/list/detail endpoints for API executions.
+- [ ] Add generated OpenAPI documentation examples for all API contracts.
 
 ## P1 — Security Testing Completion
 
-- [ ] Implement the missing `authentication_configuration` checker.
+- [x] Implement the missing `authentication_configuration` checker.
 - [ ] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
 - [ ] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
 - [ ] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.

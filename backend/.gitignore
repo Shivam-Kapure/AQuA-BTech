@@ -19,4 +19,6 @@ ENV/
 
 # Runtime / generated artifacts
 playwright_scripts/
+playwright_artifacts/
+screenshot.png
 data/

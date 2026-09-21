@@ -45,6 +45,7 @@ async def generate_test_cases_for_url(
     url: str,
     *,
     project_name: str | None = None,
+    owner_id: str | None = None,
 ) -> list[TestCaseInDB]:
     """
     Use the configured LLM to generate test cases for a URL
@@ -68,7 +69,9 @@ async def generate_test_cases_for_url(
         raise ValueError("project_name is required to generate test cases.")
 
     project_repo = ProjectRepository()
-    project = await project_repo.get_or_create_by_name(project_name, url=url)
+    project = await project_repo.get_or_create_by_name(
+        project_name, url=url, owner_id=owner_id
+    )
     project_id = project.id
 
     prompt = PROMPT_TEMPLATE.format(url=url, dom_context=dom_context)
@@ -153,4 +156,3 @@ async def generate_test_cases_for_url(
     repo = TestCaseRepository(project_name=project.name)
     created = await repo.create_many(test_case_creates, project_id=project_id)
     return created
-

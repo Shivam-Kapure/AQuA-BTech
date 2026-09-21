@@ -11,14 +11,18 @@ from loguru import logger
 from app.db.repositories.project_repo import ProjectRepository
 from app.db.repositories.security_test_repo import SecurityTestCaseRepository
 from app.models.security_test import SecurityTestCaseCreate, SecurityTestType
+from app.config import settings
+from app.core.url_security import validate_target_url
 
-async def run_zap_scan(project_name: str) -> list[dict[str, Any]]:
+async def run_zap_scan(
+    project_name: str, *, owner_id: str | None = None
+) -> list[dict[str, Any]]:
     """
     Runs OWASP ZAP Baseline Scan via Docker against the project's configured URL.
     Parses the JSON report and saves findings to the database in the existing format.
     """
     project_repo = ProjectRepository()
-    project = await project_repo.get_by_name(project_name)
+    project = await project_repo.get_by_name(project_name, owner_id=owner_id)
     
     if not project or not project.id:
         raise ValueError(f"Project '{project_name}' not found.")
@@ -26,6 +30,7 @@ async def run_zap_scan(project_name: str) -> list[dict[str, Any]]:
     target_url = project.url
     if not target_url:
         raise ValueError(f"Project '{project_name}' has no configured target URL.")
+    validate_target_url(target_url)
         
     logger.info(f"Starting ZAP baseline scan for project '{project_name}' against target '{target_url}'")
     
@@ -42,7 +47,7 @@ async def run_zap_scan(project_name: str) -> list[dict[str, Any]]:
         cmd = [
             "docker", "run", "--rm",
             "-v", f"{temp_path}:/zap/wrk/:rw",
-            "-t", "zaproxy/zap2docker-stable",
+            "-t", settings.ZAP_IMAGE,
             "zap-baseline.py",
             "-t", target_url,
             "-J", report_filename
@@ -53,12 +58,15 @@ async def run_zap_scan(project_name: str) -> list[dict[str, Any]]:
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            env={key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ},
         )
         
         # Add a timeout for the entire scan process (e.g. 5 minutes)
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300.0)
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=settings.ZAP_TIMEOUT_S
+            )
         except asyncio.TimeoutError:
             process.kill()
             raise TimeoutError("ZAP scan timed out after 5 minutes.")
