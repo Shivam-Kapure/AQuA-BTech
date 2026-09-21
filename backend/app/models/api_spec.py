@@ -67,3 +67,9 @@ class ApiRunRecord(BaseModel):
     test_name: str
     result: dict[str, Any]
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ApiWorkflowStep(BaseModel):
+    name: str
+    test_case: ApiTestCase
+    extract: dict[str, str] = Field(default_factory=dict)

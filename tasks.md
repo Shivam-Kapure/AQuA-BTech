@@ -42,7 +42,7 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Support URL/path/query/header/body templates and environment-safe variable substitution.
 - [x] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
 - [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
-- [ ] Add setup/teardown and dependent-request support for authenticated workflows.
+- [x] Add setup/teardown and dependent-request support for authenticated workflows.
 - [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [ ] Add optional Postman collection import after OpenAPI support is stable.
 - [x] Add API run/list/detail endpoints for API executions.
