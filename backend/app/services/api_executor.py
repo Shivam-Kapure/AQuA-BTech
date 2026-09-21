@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import re
 from typing import Any
 
 import httpx
@@ -13,6 +14,17 @@ from app.models.api_spec import ApiAssertion, ApiTestCase
 
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "x-api-key"}
 SENSITIVE_KEYS = {"password", "token", "secret", "authorization", "access_token", "refresh_token"}
+VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _substitute(value: Any, variables: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        return VARIABLE_PATTERN.sub(lambda match: variables.get(match.group(1), match.group(0)), value)
+    if isinstance(value, dict):
+        return {key: _substitute(item, variables) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_substitute(item, variables) for item in value]
+    return value
 
 
 def _redact(value: Any) -> Any:
@@ -58,18 +70,28 @@ def _check_assertion(assertion: ApiAssertion, response: httpx.Response, body: An
 
 
 async def execute_api_test(test_case: ApiTestCase, *, client: httpx.AsyncClient | None = None) -> dict[str, Any]:
-    validate_target_url(test_case.url)
+    variables = test_case.variables
+    url = _substitute(test_case.url, variables)
+    headers = _substitute(test_case.headers, variables)
+    query = _substitute(test_case.query, variables)
+    body_value = _substitute(test_case.body, variables)
+    if test_case.auth_context and test_case.auth_context.token:
+        if test_case.auth_context.scheme.lower() == "bearer":
+            headers.setdefault("Authorization", f"Bearer {test_case.auth_context.token}")
+        elif test_case.auth_context.scheme.lower() == "basic":
+            headers.setdefault("Authorization", f"Basic {test_case.auth_context.token}")
+    validate_target_url(url)
     own_client = client is None
     client = client or httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, follow_redirects=False, timeout=30.0)
     started = time.perf_counter()
     try:
         response = await client.request(
             test_case.method.upper(),
-            test_case.url,
-            headers=test_case.headers,
-            params=test_case.query,
-            json=test_case.body if isinstance(test_case.body, (dict, list)) else None,
-            content=test_case.body if isinstance(test_case.body, str) else None,
+            url,
+            headers=headers,
+            params=query,
+            json=body_value if isinstance(body_value, (dict, list)) else None,
+            content=body_value if isinstance(body_value, str) else None,
         )
         elapsed_ms = (time.perf_counter() - started) * 1000
         try:

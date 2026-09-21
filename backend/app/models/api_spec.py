@@ -38,4 +38,11 @@ class ApiTestCase(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     query: dict[str, str] = Field(default_factory=dict)
     body: dict | list | str | None = None
+    variables: dict[str, str] = Field(default_factory=dict)
+    auth_context: "ApiAuthContext | None" = None
     assertions: list[ApiAssertion] = Field(default_factory=list)
+
+
+class ApiAuthContext(BaseModel):
+    scheme: str = "bearer"
+    token: str | None = None

@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.config import settings
-from app.models.api_spec import ApiAssertion, ApiTestCase
+from app.models.api_spec import ApiAssertion, ApiAuthContext, ApiTestCase
 from app.services.api_executor import execute_api_test
 
 
@@ -20,6 +20,9 @@ async def test_execute_api_test_asserts_and_redacts(monkeypatch: pytest.MonkeyPa
         name="health",
         method="GET",
         url="http://127.0.0.1/health",
+        variables={"tenant": "acme"},
+        auth_context=ApiAuthContext(token="secret-token"),
+        headers={"X-Tenant": "${tenant}"},
         assertions=[
             ApiAssertion(kind="status", expected=200),
             ApiAssertion(kind="json_field", path="$.ok", expected=True),
