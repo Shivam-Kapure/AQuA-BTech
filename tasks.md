@@ -52,7 +52,8 @@ This is the proposed implementation backlog from the architecture review. Review
 
 - [x] Implement the missing `authentication_configuration` checker.
 - [ ] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
-- [ ] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
+- [x] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
+- [x] Add passive API checks for declared authentication, CORS headers, reachability, and error responses.
 - [ ] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.
 - [ ] Make ZAP scans asynchronous, scoped, deduplicated, and linked to a durable security run.
 - [ ] Pin the ZAP image and document the required Docker permissions and network policy.

@@ -19,6 +19,7 @@ from app.services.api_executor import execute_api_test
 from app.services.api_workflow import execute_api_workflow
 from app.services.postman_import import parse_postman_collection
 from app.services.api_case_generation import generate_api_test_cases
+from app.services.api_security_scan import scan_api_security
 from app.models.api_spec import ApiTestCase
 
 router = APIRouter()
@@ -37,6 +38,11 @@ class PostmanImportRequest(BaseModel):
 class ApiCaseGenerationRequest(BaseModel):
     spec: ApiSpec
     count: int = 10
+
+
+class ApiSecurityScanRequest(BaseModel):
+    spec: ApiSpec
+    active: bool = False
 
 
 @router.post("/parse", response_model=ApiSpec)
@@ -131,6 +137,17 @@ async def generate_api_cases(
     try:
         return await generate_api_test_cases(payload.spec, count=payload.count)
     except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/security-scan")
+async def scan_api_spec_security(
+    payload: ApiSecurityScanRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    try:
+        return await scan_api_security(payload.spec, active=payload.active)
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
