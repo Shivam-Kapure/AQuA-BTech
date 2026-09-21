@@ -12,6 +12,7 @@ export default function ApiTestingPage() {
   const [document, setDocument] = useState(example)
   const [spec, setSpec] = useState(null)
   const [findings, setFindings] = useState([])
+  const [runs, setRuns] = useState([])
   const [loading, setLoading] = useState(false)
 
   async function parse() {
@@ -23,6 +24,31 @@ export default function ApiTestingPage() {
       toast.success(`Imported ${data.operations.length} operations`)
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Could not parse OpenAPI document')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function saveSpec() {
+    if (!spec) return
+    setLoading(true)
+    try {
+      await client.post('/api/v1/api-specs/import', { document, project_name: spec.title })
+      toast.success('API specification saved')
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Could not save API specification')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadRuns() {
+    setLoading(true)
+    try {
+      const { data } = await client.get('/api/v1/api-specs/runs')
+      setRuns(data)
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Could not load API runs')
     } finally {
       setLoading(false)
     }
@@ -52,7 +78,11 @@ export default function ApiTestingPage() {
         <div className="glass-card p-5">
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="openapi-document">OpenAPI JSON</label>
           <textarea id="openapi-document" value={document} onChange={(event) => setDocument(event.target.value)} className="mt-3 min-h-80 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-900" />
-          <button type="button" onClick={parse} disabled={loading} className="btn-primary mt-3">{loading ? 'Working…' : 'Parse document'}</button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={parse} disabled={loading} className="btn-primary">{loading ? 'Working…' : 'Parse document'}</button>
+            <button type="button" onClick={saveSpec} disabled={!spec || loading} className="btn-secondary">Save specification</button>
+            <button type="button" onClick={loadRuns} disabled={loading} className="btn-secondary">Load run history</button>
+          </div>
         </div>
         <div className="glass-card p-5">
           <div className="flex items-center justify-between gap-3">
@@ -72,6 +102,7 @@ export default function ApiTestingPage() {
         </div>
       </section>
       {findings.length > 0 ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Passive findings</h2><div className="mt-3 space-y-2">{findings.map((finding, index) => <div key={`${finding.operation_id}-${finding.category}-${index}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200"><span className="font-semibold">{finding.category}</span> · {finding.finding}</div>)}</div></section> : null}
+      {runs.length > 0 ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">API run history</h2><div className="mt-3 space-y-2">{runs.map((run) => <div key={run.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700"><span className="font-medium text-slate-800 dark:text-slate-200">{run.test_name}</span><span className={run.result?.passed ? 'text-emerald-600' : 'text-rose-600'}>{run.result?.passed ? 'passed' : 'failed'} · {run.result?.status_code ?? 'n/a'}</span></div>)}</div></section> : null}
     </div>
   )
 }
