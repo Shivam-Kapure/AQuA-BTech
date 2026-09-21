@@ -43,7 +43,7 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
 - [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
 - [x] Add setup/teardown and dependent-request support for authenticated workflows.
-- [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
+- [x] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [x] Add optional Postman collection import after OpenAPI support is stable.
 - [x] Add API run/list/detail endpoints for API executions.
 - [ ] Add generated OpenAPI documentation examples for all API contracts.
