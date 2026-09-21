@@ -30,9 +30,9 @@ This is the proposed implementation backlog from the architecture review. Review
 
 ## P1 — API Testing Module
 
-- [ ] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
+- [x] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
 - [ ] Implement OpenAPI upload/URL import with validation, size limits, and checksum/version tracking.
-- [ ] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
+- [x] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
 - [ ] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
 - [ ] Implement deterministic HTTP execution with `httpx` in the worker layer.
 - [ ] Support URL/path/query/header/body templates and environment-safe variable substitution.

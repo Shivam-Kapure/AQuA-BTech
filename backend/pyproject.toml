@@ -31,6 +31,7 @@ dependencies = [
     "loguru>=0.7.2",
     "httpx>=0.26.0",
     "python-multipart>=0.0.6",
+    "pyyaml>=6.0.0",
     "bcrypt>=5.0.0",
     # Testing
     "pytest>=7.4.0",
