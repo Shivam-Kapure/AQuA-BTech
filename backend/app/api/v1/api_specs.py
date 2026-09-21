@@ -16,6 +16,7 @@ from app.core.url_security import validate_target_url
 from app.config import settings
 from app.services.api_executor import execute_api_test
 from app.services.api_workflow import execute_api_workflow
+from app.services.postman_import import parse_postman_collection
 from app.models.api_spec import ApiTestCase
 
 router = APIRouter()
@@ -25,6 +26,10 @@ class ApiSpecImportRequest(BaseModel):
     document: str | dict[str, Any] | None = None
     source_url: str | None = None
     project_name: str | None = None
+
+
+class PostmanImportRequest(BaseModel):
+    collection: dict[str, Any]
 
 
 @router.post("/parse", response_model=ApiSpec)
@@ -98,6 +103,17 @@ async def list_api_specs(
 ) -> list[dict[str, Any]]:
     records = await ApiSpecRepository().list(owner_id=current_user.id, project_name=project_name)
     return [record.model_dump(mode="json") for record in records]
+
+
+@router.post("/import-postman", response_model=list[ApiTestCase])
+async def import_postman_collection(
+    payload: PostmanImportRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[ApiTestCase]:
+    try:
+        return parse_postman_collection(payload.collection)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/runs")
