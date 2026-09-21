@@ -167,3 +167,38 @@ async def check_information_disclosure(url: str) -> dict[str, Any]:
             "evidence": "",
             "recommendation": "Check target reachability."
         }
+
+
+async def check_authentication_configuration(url: str) -> dict[str, Any]:
+    """Passive check that an endpoint does not expose protected data anonymously."""
+    try:
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            response = await client.get(url, follow_redirects=False)
+        if response.status_code in {401, 403}:
+            return {
+                "status": "PASS",
+                "finding": "Endpoint requires authentication or authorization.",
+                "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+                "recommendation": "Keep authentication enforcement enabled and test authorized roles separately.",
+            }
+        if response.status_code in {200, 206}:
+            return {
+                "status": "FAIL",
+                "finding": "Endpoint returned success to an anonymous request.",
+                "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+                "recommendation": "Require authentication before returning protected resources.",
+            }
+        return {
+            "status": "WARNING",
+            "finding": f"Authentication behavior was inconclusive (HTTP {response.status_code}).",
+            "evidence": f"Anonymous request returned HTTP {response.status_code}.",
+            "recommendation": "Review endpoint access policy and validate with an authorized test account.",
+        }
+    except Exception as exc:
+        return {
+            "status": "WARNING",
+            "finding": f"Could not complete authentication configuration check: {exc}",
+            "evidence": "",
+            "recommendation": "Check target reachability and authentication configuration.",
+        }

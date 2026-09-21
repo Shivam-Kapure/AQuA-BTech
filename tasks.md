@@ -50,7 +50,7 @@ This is the proposed implementation backlog from the architecture review. Review
 
 ## P1 — Security Testing Completion
 
-- [ ] Implement the missing `authentication_configuration` checker.
+- [x] Implement the missing `authentication_configuration` checker.
 - [ ] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
 - [ ] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
 - [ ] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.

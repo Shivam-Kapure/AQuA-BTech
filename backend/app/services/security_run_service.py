@@ -10,6 +10,7 @@ from app.services.security_checkers import (
     check_cookie_security,
     check_input_validation,
     check_information_disclosure,
+    check_authentication_configuration,
 )
 
 async def run_security_test(
@@ -43,6 +44,8 @@ async def run_security_test(
         result = await check_input_validation(target_url, tc.method, tc.parameter)
     elif tc.test_type == "information_disclosure":
         result = await check_information_disclosure(target_url)
+    elif tc.test_type == "authentication_configuration":
+        result = await check_authentication_configuration(target_url)
     else:
         result = {
             "status": "WARNING",
