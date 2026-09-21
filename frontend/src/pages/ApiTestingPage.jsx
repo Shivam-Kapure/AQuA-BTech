@@ -12,6 +12,7 @@ export default function ApiTestingPage() {
   const [document, setDocument] = useState(example)
   const [spec, setSpec] = useState(null)
   const [findings, setFindings] = useState([])
+  const [savedFindings, setSavedFindings] = useState([])
   const [runs, setRuns] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -54,6 +55,18 @@ export default function ApiTestingPage() {
     }
   }
 
+  async function loadFindings() {
+    setLoading(true)
+    try {
+      const { data } = await client.get('/api/v1/api-specs/findings')
+      setSavedFindings(data)
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Could not load API findings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function scan() {
     if (!spec) return
     setLoading(true)
@@ -82,6 +95,7 @@ export default function ApiTestingPage() {
             <button type="button" onClick={parse} disabled={loading} className="btn-primary">{loading ? 'Working…' : 'Parse document'}</button>
             <button type="button" onClick={saveSpec} disabled={!spec || loading} className="btn-secondary">Save specification</button>
             <button type="button" onClick={loadRuns} disabled={loading} className="btn-secondary">Load run history</button>
+            <button type="button" onClick={loadFindings} disabled={loading} className="btn-secondary">Load saved findings</button>
           </div>
         </div>
         <div className="glass-card p-5">
@@ -103,6 +117,7 @@ export default function ApiTestingPage() {
       </section>
       {findings.length > 0 ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Passive findings</h2><div className="mt-3 space-y-2">{findings.map((finding, index) => <div key={`${finding.operation_id}-${finding.category}-${index}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200"><span className="font-semibold">{finding.category}</span> · {finding.finding}</div>)}</div></section> : null}
       {runs.length > 0 ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">API run history</h2><div className="mt-3 space-y-2">{runs.map((run) => <div key={run.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700"><span className="font-medium text-slate-800 dark:text-slate-200">{run.test_name}</span><span className={run.result?.passed ? 'text-emerald-600' : 'text-rose-600'}>{run.result?.passed ? 'passed' : 'failed'} · {run.result?.status_code ?? 'n/a'}</span></div>)}</div></section> : null}
+      {savedFindings.length > 0 ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Saved findings</h2><div className="mt-3 space-y-2">{savedFindings.map((finding) => <div key={finding.id} className="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex justify-between gap-3"><span className="font-semibold text-slate-800 dark:text-slate-200">{finding.category}</span><span className="text-amber-600">{finding.severity}</span></div><p className="mt-1 text-slate-600 dark:text-slate-300">{finding.finding}</p></div>)}</div></section> : null}
     </div>
   )
 }
