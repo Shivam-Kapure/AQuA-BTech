@@ -8,6 +8,7 @@ import LandingGate from './pages/LandingGate'
 import LoginPage from './pages/LoginPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import ApiTestingPage from './pages/ApiTestingPage'
 import { LogOut } from 'lucide-react'
 import aquaLogo from './assets/aqua-logo.png'
 
@@ -24,7 +25,7 @@ function ProtectedLayout() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:border-slate-800 dark:bg-[#0b0f19]/90">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 md:px-8">
-          <Link to="/projects" className="flex items-center gap-3 no-underline">
+            <Link to="/projects" className="flex items-center gap-3 no-underline">
             <img src={aquaLogo} alt="AQUA logo" className="h-9 w-auto object-contain" />
             <div>
               <span className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">
@@ -32,7 +33,8 @@ function ProtectedLayout() {
               </span>
               <p className="text-xs text-slate-500 dark:text-slate-400">Testing workspace</p>
             </div>
-          </Link>
+            </Link>
+            <Link to="/api-testing" className="hidden text-sm font-medium text-slate-600 hover:text-primary-600 md:inline dark:text-slate-300">API testing</Link>
           <div className="flex items-center gap-2">
             {user?.username ? (
               <span className="hidden text-sm text-slate-500 sm:inline dark:text-slate-400">
@@ -77,6 +79,7 @@ function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectName" element={<ProjectDetailPage />} />
+          <Route path="/api-testing" element={<ApiTestingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

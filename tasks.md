@@ -64,6 +64,7 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P1 — UI and Contract Alignment
 
 - [ ] Add frontend API-suite, operation, test-case, run, and finding views.
+- [x] Add initial authenticated API import, operation catalog, and passive-scan UI.
 - [ ] Add security-testing screens for generation, execution, ZAP scans, and findings.
 - [ ] Decide whether generation profiles and `user_prompt` are supported; implement the backend contract or remove those UI fields.
 - [ ] Connect route JWT handling end-to-end or remove the modal and marketing claim.
