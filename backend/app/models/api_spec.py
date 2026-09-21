@@ -44,6 +44,7 @@ class ApiAssertion(BaseModel):
 
 class ApiTestCase(BaseModel):
     name: str
+    project_name: str | None = None
     method: str
     url: str
     headers: dict[str, str] = Field(default_factory=dict)
@@ -57,3 +58,12 @@ class ApiTestCase(BaseModel):
 class ApiAuthContext(BaseModel):
     scheme: str = "bearer"
     token: str | None = None
+
+
+class ApiRunRecord(BaseModel):
+    id: str | None = None
+    owner_id: str
+    project_name: str | None = None
+    test_name: str
+    result: dict[str, Any]
+    created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import AuthenticatedUser, get_current_user
-from app.models.api_spec import ApiSpec
+from app.models.api_spec import ApiRunRecord, ApiSpec
 from app.services.openapi_parser import parse_openapi_document
 from app.services.openapi_import import build_api_spec_record
 from app.db.repositories.api_spec_repo import ApiSpecRepository
+from app.db.repositories.api_run_repo import ApiRunRepository
 from app.core.url_security import validate_target_url
 from app.config import settings
 from app.services.api_executor import execute_api_test
@@ -42,7 +43,14 @@ async def execute_api_spec_test(
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Execute one explicitly supplied API test case without persisting secrets."""
-    return await execute_api_test(payload)
+    result = await execute_api_test(payload)
+    run = await ApiRunRepository().create(ApiRunRecord(
+        owner_id=_current_user.id,
+        project_name=payload.project_name,
+        test_name=payload.name,
+        result=result,
+    ))
+    return run.model_dump(mode="json")
 
 
 @router.post("/import")
@@ -80,3 +88,20 @@ async def list_api_specs(
 ) -> list[dict[str, Any]]:
     records = await ApiSpecRepository().list(owner_id=current_user.id, project_name=project_name)
     return [record.model_dump(mode="json") for record in records]
+
+
+@router.get("/runs")
+async def list_api_runs(
+    project_name: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    runs = await ApiRunRepository().list(owner_id=current_user.id, project_name=project_name)
+    return [run.model_dump(mode="json") for run in runs]
+
+
+@router.get("/runs/{run_id}")
+async def get_api_run(run_id: str, current_user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, Any]:
+    run = await ApiRunRepository().get(run_id, owner_id=current_user.id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="API run not found")
+    return run.model_dump(mode="json")

@@ -45,7 +45,8 @@ This is the proposed implementation backlog from the architecture review. Review
 - [ ] Add setup/teardown and dependent-request support for authenticated workflows.
 - [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [ ] Add optional Postman collection import after OpenAPI support is stable.
-- [ ] Add API run/list/detail endpoints and OpenAPI documentation for all contracts.
+- [x] Add API run/list/detail endpoints for API executions.
+- [ ] Add generated OpenAPI documentation examples for all API contracts.
 
 ## P1 — Security Testing Completion
 
