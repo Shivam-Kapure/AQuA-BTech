@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -7,16 +8,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import AuthenticatedUser, get_current_user
-from app.models.api_spec import ApiRunRecord, ApiSpec, ApiWorkflowStep
+from app.models.api_spec import ApiFindingRecord, ApiRunRecord, ApiSpec, ApiSpecRecord, ApiWorkflowStep
 from app.services.openapi_parser import parse_openapi_document
 from app.services.openapi_import import build_api_spec_record
 from app.db.repositories.api_spec_repo import ApiSpecRepository
 from app.db.repositories.api_run_repo import ApiRunRepository
+from app.db.repositories.api_finding_repo import ApiFindingRepository
 from app.core.url_security import validate_target_url
 from app.config import settings
 from app.services.api_executor import execute_api_test
 from app.services.api_workflow import execute_api_workflow
 from app.services.postman_import import parse_postman_collection
+from app.services.api_case_generation import generate_api_test_cases
+from app.services.api_security_scan import scan_api_security
 from app.models.api_spec import ApiTestCase
 
 router = APIRouter()
@@ -27,9 +31,26 @@ class ApiSpecImportRequest(BaseModel):
     source_url: str | None = None
     project_name: str | None = None
 
+    model_config = {"json_schema_extra": {"examples": [{"document": {"openapi": "3.0.3", "info": {"title": "Example", "version": "1.0.0"}, "paths": {}}}]}}
+
 
 class PostmanImportRequest(BaseModel):
     collection: dict[str, Any]
+
+    model_config = {"json_schema_extra": {"examples": [{"collection": {"info": {"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"}, "item": []}}]}}
+
+
+class ApiCaseGenerationRequest(BaseModel):
+    spec: ApiSpec
+    count: int = 10
+
+    model_config = {"json_schema_extra": {"examples": [{"spec": {"title": "Example", "version": "1.0.0", "openapi_version": "3.0.3", "operations": []}, "count": 5}]}}
+
+
+class ApiSecurityScanRequest(BaseModel):
+    spec: ApiSpec
+    active: bool = False
+    project_name: str | None = None
 
 
 @router.post("/parse", response_model=ApiSpec)
@@ -43,7 +64,7 @@ async def parse_api_spec(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
-@router.post("/execute")
+@router.post("/execute", response_model=ApiRunRecord)
 async def execute_api_spec_test(
     payload: ApiTestCase,
     _current_user: AuthenticatedUser = Depends(get_current_user),
@@ -68,7 +89,7 @@ async def execute_api_workflow_endpoint(
     return await execute_api_workflow(steps)
 
 
-@router.post("/import")
+@router.post("/import", response_model=ApiSpecRecord)
 async def import_api_spec(
     payload: ApiSpecImportRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -96,7 +117,7 @@ async def import_api_spec(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/")
+@router.get("/", response_model=list[ApiSpecRecord])
 async def list_api_specs(
     project_name: str | None = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -116,7 +137,32 @@ async def import_postman_collection(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/runs")
+@router.post("/generate-tests", response_model=list[ApiTestCase])
+async def generate_api_cases(
+    payload: ApiCaseGenerationRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[ApiTestCase]:
+    try:
+        return await generate_api_test_cases(payload.spec, count=payload.count)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/security-scan")
+async def scan_api_spec_security(
+    payload: ApiSecurityScanRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    try:
+        findings = await scan_api_security(payload.spec, active=payload.active)
+        records = [ApiFindingRecord(owner_id=_current_user.id, project_name=payload.project_name, operation_id=finding.get("operation_id"), category=finding["category"], status=finding["status"], finding=finding["finding"]) for finding in findings]
+        await ApiFindingRepository().create_many(records)
+        return findings
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/runs", response_model=list[ApiRunRecord])
 async def list_api_runs(
     project_name: str | None = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -125,9 +171,17 @@ async def list_api_runs(
     return [run.model_dump(mode="json") for run in runs]
 
 
-@router.get("/runs/{run_id}")
+@router.get("/runs/{run_id}", response_model=ApiRunRecord)
 async def get_api_run(run_id: str, current_user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, Any]:
     run = await ApiRunRepository().get(run_id, owner_id=current_user.id)
     if run is None:
         raise HTTPException(status_code=404, detail="API run not found")
     return run.model_dump(mode="json")
+
+
+@router.get("/findings", response_model=list[ApiFindingRecord])
+async def list_api_findings(
+    project_name: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[ApiFindingRecord]:
+    return await ApiFindingRepository().list(owner_id=current_user.id, project_name=project_name)

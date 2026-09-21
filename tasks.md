@@ -43,16 +43,19 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
 - [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
 - [x] Add setup/teardown and dependent-request support for authenticated workflows.
-- [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.
+- [x] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [x] Add optional Postman collection import after OpenAPI support is stable.
 - [x] Add API run/list/detail endpoints for API executions.
-- [ ] Add generated OpenAPI documentation examples for all API contracts.
+- [x] Add generated OpenAPI documentation examples and response models for API contracts.
 
 ## P1 — Security Testing Completion
 
 - [x] Implement the missing `authentication_configuration` checker.
 - [ ] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
-- [ ] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
+- [x] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
+- [x] Add passive API checks for declared authentication, CORS headers, reachability, and error responses.
+- [x] Add passive API checks for rate-limit signals, response schema mismatches, and sensitive response fields.
+- [x] Persist owner-scoped API security findings and expose finding history.
 - [ ] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.
 - [ ] Make ZAP scans asynchronous, scoped, deduplicated, and linked to a durable security run.
 - [ ] Pin the ZAP image and document the required Docker permissions and network policy.
@@ -62,6 +65,9 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P1 — UI and Contract Alignment
 
 - [ ] Add frontend API-suite, operation, test-case, run, and finding views.
+- [x] Add initial authenticated API import, operation catalog, and passive-scan UI.
+- [x] Add persisted-spec and API run-history actions to the API workspace UI.
+- [x] Add direct operation execution controls with template-path safeguards.
 - [ ] Add security-testing screens for generation, execution, ZAP scans, and findings.
 - [ ] Decide whether generation profiles and `user_prompt` are supported; implement the backend contract or remove those UI fields.
 - [ ] Connect route JWT handling end-to-end or remove the modal and marketing claim.

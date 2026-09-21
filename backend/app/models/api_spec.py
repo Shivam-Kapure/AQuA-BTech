@@ -69,6 +69,18 @@ class ApiRunRecord(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ApiFindingRecord(BaseModel):
+    id: str | None = None
+    owner_id: str
+    project_name: str | None = None
+    operation_id: str | None = None
+    category: str
+    status: str
+    severity: str = "medium"
+    finding: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ApiWorkflowStep(BaseModel):
     name: str
     test_case: ApiTestCase
