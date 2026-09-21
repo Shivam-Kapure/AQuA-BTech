@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-import hashlib
-import secrets
 from datetime import datetime
 
+import bcrypt
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.db.mongodb import get_database
+from app.core.auth import create_access_token
 
 router = APIRouter()
 
 
 class AuthPayload(BaseModel):
     username: str = Field(min_length=2, max_length=64)
-    password: str = Field(min_length=6, max_length=256)
+    # bcrypt only accepts passwords up to 72 bytes; reject longer values rather
+    # than silently truncating credentials before hashing.
+    password: str = Field(min_length=6, max_length=72)
 
 
 class AuthUser(BaseModel):
@@ -29,8 +31,14 @@ class AuthResponse(BaseModel):
 
 
 def _hash_password(password: str) -> str:
-    # Lightweight hash for this project flow; replace with bcrypt in production.
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
+        return False
 
 
 def _users_collection():
@@ -62,7 +70,7 @@ async def register(payload: AuthPayload):
     res = await users.insert_one(doc)
 
     return AuthResponse(
-        access_token=secrets.token_urlsafe(32),
+        access_token=create_access_token(user_id=str(res.inserted_id), username=username),
         user=AuthUser(id=str(res.inserted_id), username=username),
     )
 
@@ -73,13 +81,13 @@ async def login(payload: AuthPayload):
     username = payload.username.strip()
     user = await users.find_one({"username": username})
 
-    if not user or user.get("password_hash") != _hash_password(payload.password):
+    if not user or not _verify_password(payload.password, str(user.get("password_hash", ""))):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
     return AuthResponse(
-        access_token=secrets.token_urlsafe(32),
+        access_token=create_access_token(user_id=str(user["_id"]), username=username),
         user=AuthUser(id=str(user["_id"]), username=username),
     )

@@ -5,12 +5,12 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P0 — Security and Platform Foundations
 
 - [x] Define the trust boundary and deployment threat model. See `aqua-threat-model.md`.
-- [ ] Implement real authentication with a password-hashing library (Argon2id or bcrypt).
-- [ ] Replace opaque, unverifiable login tokens with signed, expiring access tokens.
-- [ ] Add authentication dependencies to protected API routes.
-- [ ] Add project ownership and enforce authorization on every project-scoped operation.
+- [x] Implement real authentication with a password-hashing library (Argon2id or bcrypt).
+- [x] Replace opaque, unverifiable login tokens with signed, expiring access tokens.
+- [x] Add authentication dependencies to protected API routes.
+- [x] Add project ownership and enforce authorization on every project-scoped operation.
 - [ ] Add URL validation and an SSRF policy: approved schemes, host allow-list, blocked private/link-local ranges, redirect validation, and DNS-rebinding protections.
-- [ ] Remove `verify=False` from security HTTP clients; make TLS verification configurable only for local development.
+- [x] Remove `verify=False` from security HTTP clients; make TLS verification configurable only for local development.
 - [ ] Define how `X-Aqua-Route-Jwt` is validated and passed to target requests, or remove the frontend feature.
 - [ ] Prevent generated scripts and subprocesses from inheriting application secrets.
 - [ ] Choose `pyproject.toml` + `uv.lock` as the canonical Python dependency source and update/remove the incomplete `requirements.txt`.

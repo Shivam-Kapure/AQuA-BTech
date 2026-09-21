@@ -53,6 +53,7 @@ async def generate_security_tests_for_url(
     url: str,
     *,
     project_name: str | None = None,
+    owner_id: str | None = None,
 ) -> list[SecurityTestCaseInDB]:
     """
     Use the configured LLM to generate security test cases for a URL
@@ -71,7 +72,9 @@ async def generate_security_tests_for_url(
         raise ValueError("project_name is required to generate security test cases.")
 
     project_repo = ProjectRepository()
-    project = await project_repo.get_or_create_by_name(project_name, url=url)
+    project = await project_repo.get_or_create_by_name(
+        project_name, url=url, owner_id=owner_id
+    )
     project_id = project.id
 
     prompt = SECURITY_PROMPT_TEMPLATE.format(url=url, dom_context=dom_context)

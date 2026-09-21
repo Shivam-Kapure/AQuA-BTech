@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.services.agent_service import run_agent_once
+from app.core.auth import AuthenticatedUser, get_current_user
 
 
 router = APIRouter()
@@ -20,7 +21,10 @@ class AgentRunResponse(BaseModel):
 
 
 @router.post("/run-once", response_model=AgentRunResponse)
-async def run_agent_endpoint(payload: AgentRunRequest):
+async def run_agent_endpoint(
+    payload: AgentRunRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
     """
     Run a single agent decision step for a project and URL.
 
@@ -29,6 +33,6 @@ async def run_agent_endpoint(payload: AgentRunRequest):
     result = await run_agent_once(
         project_name=payload.project_name,
         url=payload.url,
+        owner_id=current_user.id,
     )
     return AgentRunResponse(**result)
-

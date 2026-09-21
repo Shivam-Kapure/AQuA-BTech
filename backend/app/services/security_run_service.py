@@ -12,11 +12,13 @@ from app.services.security_checkers import (
     check_information_disclosure,
 )
 
-async def run_security_test(project_name: str, test_id: str) -> dict[str, Any]:
+async def run_security_test(
+    project_name: str, test_id: str, *, owner_id: str | None = None
+) -> dict[str, Any]:
     project_repo = ProjectRepository()
     test_repo = SecurityTestCaseRepository(project_name=project_name)
 
-    project = await project_repo.get_by_name(project_name)
+    project = await project_repo.get_by_name(project_name, owner_id=owner_id)
     if not project or not project.id:
         return {"error": "project_not_found"}
 

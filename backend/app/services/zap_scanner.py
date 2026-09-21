@@ -12,13 +12,15 @@ from app.db.repositories.project_repo import ProjectRepository
 from app.db.repositories.security_test_repo import SecurityTestCaseRepository
 from app.models.security_test import SecurityTestCaseCreate, SecurityTestType
 
-async def run_zap_scan(project_name: str) -> list[dict[str, Any]]:
+async def run_zap_scan(
+    project_name: str, *, owner_id: str | None = None
+) -> list[dict[str, Any]]:
     """
     Runs OWASP ZAP Baseline Scan via Docker against the project's configured URL.
     Parses the JSON report and saves findings to the database in the existing format.
     """
     project_repo = ProjectRepository()
-    project = await project_repo.get_by_name(project_name)
+    project = await project_repo.get_by_name(project_name, owner_id=owner_id)
     
     if not project or not project.id:
         raise ValueError(f"Project '{project_name}' not found.")

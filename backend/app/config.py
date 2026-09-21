@@ -6,6 +6,12 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Agentic Test System"
     API_V1_PREFIX: str = "/api/v1"
+    APP_ENV: str = "development"
+    AUTH_SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    TARGET_HOST_ALLOWLIST: str = ""
+    ALLOW_PRIVATE_TARGETS: bool = False
+    HTTP_VERIFY_TLS: bool = True
 
     # Database
     MONGODB_URI: str = "mongodb://localhost:27017"

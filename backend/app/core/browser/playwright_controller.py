@@ -2,11 +2,14 @@ import asyncio
 from playwright.async_api import async_playwright
 from loguru import logger
 
+from app.core.url_security import validate_target_url
+
 async def fetch_page_html(url: str) -> str:
     """
     Launch a headless chromium browser, navigate to the URL,
     wait for the network to be idle, and return the page's HTML.
     """
+    validate_target_url(url)
     logger.info(f"Scraping URL: {url}")
     try:
         async with async_playwright() as p:

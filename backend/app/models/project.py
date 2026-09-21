@@ -19,10 +19,12 @@ class ProjectCreate(ProjectBase):
 
 class ProjectInDB(ProjectBase):
     id: str | None = Field(default=None, alias="_id")
+    # Optional for backwards compatibility with pre-ownership documents. New
+    # writes always populate this field and scoped queries exclude legacy rows.
+    owner_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
         "populate_by_name": True,
     }
-

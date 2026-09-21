@@ -1,10 +1,14 @@
 import httpx
 from typing import Any
 
+from app.config import settings
+from app.core.url_security import validate_target_url
+
 async def check_security_headers(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         headers = resp.headers
         missing = []
@@ -39,8 +43,9 @@ async def check_security_headers(url: str) -> dict[str, Any]:
 
 async def check_cookie_security(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         set_cookie_headers = resp.headers.get_list("set-cookie")
         if not set_cookie_headers:
@@ -88,13 +93,14 @@ async def check_input_validation(url: str, method: str, parameter: str) -> dict[
     # A generic, non-intrusive probe to see if basic payload is reflected unescaped or causes 500
     probe = "<aqua_probe>"
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
             if method.upper() == "POST":
                 data = {parameter: probe} if parameter else {}
-                resp = await client.post(url, data=data, follow_redirects=True)
+                resp = await client.post(url, data=data, follow_redirects=False)
             else:
                 params = {parameter: probe} if parameter else {}
-                resp = await client.get(url, params=params, follow_redirects=True)
+                resp = await client.get(url, params=params, follow_redirects=False)
                 
         if resp.status_code >= 500:
             return {
@@ -128,8 +134,9 @@ async def check_input_validation(url: str, method: str, parameter: str) -> dict[
 
 async def check_information_disclosure(url: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        validate_target_url(url)
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, timeout=10.0) as client:
+            resp = await client.get(url, follow_redirects=False)
             
         headers = resp.headers
         disclosures = []

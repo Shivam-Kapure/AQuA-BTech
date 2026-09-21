@@ -4,3 +4,4 @@ motor
 pydantic
 pydantic-settings
 httpx
+bcrypt>=5.0.0

@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.llm import get_llm_client
+from app.core.auth import AuthenticatedUser, get_current_user
 
 router = APIRouter()
 
@@ -21,7 +22,10 @@ class LLMTestRequest(BaseModel):
 
 
 @router.post("/test")
-async def llm_test(payload: LLMTestRequest) -> dict[str, Any]:
+async def llm_test(
+    payload: LLMTestRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict[str, Any]:
     client = get_llm_client()
     messages: list[dict[str, str]] = []
     if payload.system:
@@ -45,4 +49,3 @@ async def llm_test(payload: LLMTestRequest) -> dict[str, Any]:
             parsed = None
 
     return {"text": res.text, "json": parsed}
-

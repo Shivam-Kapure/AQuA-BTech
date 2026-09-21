@@ -13,6 +13,7 @@ name = "agentic-testing-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "bcrypt" },
     { name = "beautifulsoup4" },
     { name = "chromadb" },
     { name = "fastapi" },
@@ -39,6 +40,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "chromadb", specifier = ">=0.4.22" },
     { name = "fastapi", specifier = ">=0.109.0" },

@@ -52,7 +52,9 @@ def _missing_positional_inputs(result: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
-async def run_single_test(project_name: str, test_id: str) -> dict[str, Any]:
+async def run_single_test(
+    project_name: str, test_id: str, *, owner_id: str | None = None
+) -> dict[str, Any]:
     """
     Run one test case: fetch it, generate a Playwright script from its steps,
     execute the script, then set status to passed/failed based on execution result
@@ -62,7 +64,7 @@ async def run_single_test(project_name: str, test_id: str) -> dict[str, Any]:
     project_repo = ProjectRepository()
     test_repo = TestCaseRepository(project_name=project_name)
 
-    project = await project_repo.get_by_name(project_name)
+    project = await project_repo.get_by_name(project_name, owner_id=owner_id)
     if not project or not project.id:
         return {"error": "project_not_found", "status": None, "failure_reason": None}
 
@@ -241,6 +243,7 @@ async def resume_single_test(
     test_id: str,
     *,
     inputs: dict[str, str] | None = None,
+    owner_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Resume a waiting test with user-provided runtime inputs.
@@ -249,7 +252,7 @@ async def resume_single_test(
     project_repo = ProjectRepository()
     test_repo = TestCaseRepository(project_name=project_name)
 
-    project = await project_repo.get_by_name(project_name)
+    project = await project_repo.get_by_name(project_name, owner_id=owner_id)
     if not project or not project.id:
         return {"error": "project_not_found", "status": None, "failure_reason": None}
 
