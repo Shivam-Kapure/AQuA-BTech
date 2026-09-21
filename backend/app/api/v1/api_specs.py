@@ -8,11 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import AuthenticatedUser, get_current_user
-from app.models.api_spec import ApiRunRecord, ApiSpec, ApiSpecRecord, ApiWorkflowStep
+from app.models.api_spec import ApiFindingRecord, ApiRunRecord, ApiSpec, ApiSpecRecord, ApiWorkflowStep
 from app.services.openapi_parser import parse_openapi_document
 from app.services.openapi_import import build_api_spec_record
 from app.db.repositories.api_spec_repo import ApiSpecRepository
 from app.db.repositories.api_run_repo import ApiRunRepository
+from app.db.repositories.api_finding_repo import ApiFindingRepository
 from app.core.url_security import validate_target_url
 from app.config import settings
 from app.services.api_executor import execute_api_test
@@ -49,6 +50,7 @@ class ApiCaseGenerationRequest(BaseModel):
 class ApiSecurityScanRequest(BaseModel):
     spec: ApiSpec
     active: bool = False
+    project_name: str | None = None
 
 
 @router.post("/parse", response_model=ApiSpec)
@@ -152,7 +154,10 @@ async def scan_api_spec_security(
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     try:
-        return await scan_api_security(payload.spec, active=payload.active)
+        findings = await scan_api_security(payload.spec, active=payload.active)
+        records = [ApiFindingRecord(owner_id=_current_user.id, project_name=payload.project_name, operation_id=finding.get("operation_id"), category=finding["category"], status=finding["status"], finding=finding["finding"]) for finding in findings]
+        await ApiFindingRepository().create_many(records)
+        return findings
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -172,3 +177,11 @@ async def get_api_run(run_id: str, current_user: AuthenticatedUser = Depends(get
     if run is None:
         raise HTTPException(status_code=404, detail="API run not found")
     return run.model_dump(mode="json")
+
+
+@router.get("/findings", response_model=list[ApiFindingRecord])
+async def list_api_findings(
+    project_name: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[ApiFindingRecord]:
+    return await ApiFindingRepository().list(owner_id=current_user.id, project_name=project_name)
