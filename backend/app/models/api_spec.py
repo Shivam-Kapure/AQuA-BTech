@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -25,7 +27,7 @@ class ApiSpec(BaseModel):
 
 class ApiAssertion(BaseModel):
     kind: str
-    expected: str | int | float | bool | None = None
+    expected: Any = None
     path: str | None = None
 
 

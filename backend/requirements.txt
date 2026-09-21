@@ -4,5 +4,6 @@ motor
 pydantic
 pydantic-settings
 httpx
+jsonschema>=4.20.0
 pyyaml>=6.0.0
 bcrypt>=5.0.0

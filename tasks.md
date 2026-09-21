@@ -37,7 +37,7 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Implement deterministic HTTP execution with `httpx` in the worker layer.
 - [x] Expose an authenticated API test execution endpoint backed by the deterministic runner.
 - [ ] Support URL/path/query/header/body templates and environment-safe variable substitution.
-- [ ] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
+- [x] Implement assertions for status, headers, JSON Schema, JSONPath/body fields, content type, and response time.
 - [x] Redact authorization headers, cookies, tokens, passwords, and sensitive response fields in stored evidence.
 - [ ] Add setup/teardown and dependent-request support for authenticated workflows.
 - [ ] Add LLM-assisted case generation only after schema validation and structured execution are working.

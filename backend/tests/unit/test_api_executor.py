@@ -24,6 +24,7 @@ async def test_execute_api_test_asserts_and_redacts(monkeypatch: pytest.MonkeyPa
             ApiAssertion(kind="status", expected=200),
             ApiAssertion(kind="json_field", path="$.ok", expected=True),
             ApiAssertion(kind="content_type", expected="application/json"),
+            ApiAssertion(kind="json_schema", expected={"type": "object", "required": ["ok"]}),
         ],
     ), client=client)
     await client.aclose()

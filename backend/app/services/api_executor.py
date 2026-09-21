@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 import httpx
+from jsonschema import ValidationError, validate
 
 from app.config import settings
 from app.core.url_security import validate_target_url
@@ -47,6 +48,12 @@ def _check_assertion(assertion: ApiAssertion, response: httpx.Response, body: An
         return response.headers.get("content-type", "").split(";", 1)[0].strip() == str(assertion.expected)
     if kind == "response_time_ms":
         return elapsed_ms <= float(assertion.expected)
+    if kind == "json_schema":
+        try:
+            validate(instance=body, schema=assertion.expected)
+            return True
+        except ValidationError:
+            return False
     raise ValueError(f"Unsupported API assertion kind: {assertion.kind}")
 
 
