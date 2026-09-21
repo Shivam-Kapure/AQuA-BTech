@@ -32,6 +32,7 @@ class ApiSpecRecord(ApiSpec):
     project_name: str | None = None
     source: str = "inline"
     checksum: str
+    version: int = 1
     imported_at: datetime = Field(default_factory=datetime.utcnow)
 
 

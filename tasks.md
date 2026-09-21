@@ -33,6 +33,8 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Add `ApiSpec` and `ApiOperation` models for OpenAPI documents and normalized endpoints.
 - [ ] Implement OpenAPI upload/URL import with validation, size limits, and checksum/version tracking.
 - [x] Validate inline OpenAPI documents and compute stable checksums.
+- [x] Persist owner-scoped OpenAPI imports with versioned listing endpoints.
+- [x] Support URL-based OpenAPI import with SSRF and size validation.
 - [x] Add a normalized operation catalog: method, path, parameters, request schema, response schema, tags, and auth scheme.
 - [x] Add `ApiTestCase`, `ApiAssertion`, and `ApiAuthContext` models.
 - [x] Implement deterministic HTTP execution with `httpx` in the worker layer.
