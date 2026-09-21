@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,15 @@ class ApiSpec(BaseModel):
     openapi_version: str
     base_urls: list[str] = Field(default_factory=list)
     operations: list[ApiOperation] = Field(default_factory=list)
+
+
+class ApiSpecRecord(ApiSpec):
+    id: str | None = None
+    owner_id: str
+    project_name: str | None = None
+    source: str = "inline"
+    checksum: str
+    imported_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ApiAssertion(BaseModel):
