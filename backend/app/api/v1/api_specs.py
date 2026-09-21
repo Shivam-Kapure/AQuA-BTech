@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import AuthenticatedUser, get_current_user
-from app.models.api_spec import ApiRunRecord, ApiSpec
+from app.models.api_spec import ApiRunRecord, ApiSpec, ApiWorkflowStep
 from app.services.openapi_parser import parse_openapi_document
 from app.services.openapi_import import build_api_spec_record
 from app.db.repositories.api_spec_repo import ApiSpecRepository
@@ -15,6 +15,7 @@ from app.db.repositories.api_run_repo import ApiRunRepository
 from app.core.url_security import validate_target_url
 from app.config import settings
 from app.services.api_executor import execute_api_test
+from app.services.api_workflow import execute_api_workflow
 from app.models.api_spec import ApiTestCase
 
 router = APIRouter()
@@ -51,6 +52,15 @@ async def execute_api_spec_test(
         result=result,
     ))
     return run.model_dump(mode="json")
+
+
+@router.post("/execute-workflow")
+async def execute_api_workflow_endpoint(
+    steps: list[ApiWorkflowStep],
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Run an ordered setup/dependent-request workflow."""
+    return await execute_api_workflow(steps)
 
 
 @router.post("/import")
