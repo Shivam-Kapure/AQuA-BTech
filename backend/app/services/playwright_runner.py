@@ -17,12 +17,33 @@ import asyncio
 from app.config import settings
 
 
+_SAFE_INHERITED_ENV_KEYS = (
+    "PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL", "PLAYWRIGHT_BROWSERS_PATH"
+)
+
+
+def _build_child_env(
+    *, artifact_dir: str, runtime_inputs: dict[str, str] | None, route_jwt: str | None
+) -> dict[str, str]:
+    """Build a minimal environment so generated code cannot read app secrets."""
+    env = {key: os.environ[key] for key in _SAFE_INHERITED_ENV_KEYS if key in os.environ}
+    env["ARTIFACT_DIR"] = artifact_dir
+    if route_jwt:
+        env["AQUA_ROUTE_JWT"] = route_jwt
+    reserved = {"ARTIFACT_DIR", "AQUA_ROUTE_JWT"}
+    for key, value in (runtime_inputs or {}).items():
+        if isinstance(key, str) and key and key.isidentifier() and key not in reserved:
+            env[key] = "" if value is None else str(value)
+    return env
+
+
 async def run_playwright_script(
     script: str,
     *,
     timeout_seconds: float = 60.0,
     artifact_subdir: str | None = None,
     runtime_inputs: dict[str, str] | None = None,
+    route_jwt: str | None = None,
 ) -> dict[str, Any]:
     """
     Write script to a temp file, run it with `python script.py`, capture result.
@@ -60,12 +81,11 @@ async def run_playwright_script(
         base_dir = settings.PLAYWRIGHT_ARTIFACTS_DIR or "playwright_artifacts"
         run_id = artifact_subdir or uuid.uuid4().hex
         artifact_dir = os.path.join(base_dir, run_id)
-        env = dict(os.environ)
-        env["ARTIFACT_DIR"] = artifact_dir
-        if runtime_inputs:
-            for k, v in runtime_inputs.items():
-                if k and isinstance(k, str):
-                    env[k] = "" if v is None else str(v)
+        env = _build_child_env(
+            artifact_dir=artifact_dir,
+            runtime_inputs=runtime_inputs,
+            route_jwt=route_jwt,
+        )
 
         proc = await asyncio.create_subprocess_exec(
             "python",

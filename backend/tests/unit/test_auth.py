@@ -52,3 +52,19 @@ def test_expired_access_token_is_rejected(monkeypatch: pytest.MonkeyPatch) -> No
         auth._decode_access_token(token)
 
     assert error.value.status_code == 401
+
+
+def test_route_jwt_requires_compact_shape() -> None:
+    assert auth.validate_route_jwt("header.payload.signature") == "header.payload.signature"
+
+    with pytest.raises(HTTPException) as error:
+        auth.validate_route_jwt("not-a-jwt")
+
+    assert error.value.status_code == 422
+
+
+def test_route_jwt_rejects_control_characters() -> None:
+    with pytest.raises(HTTPException) as error:
+        auth.validate_route_jwt("header.pay\nload.signature")
+
+    assert error.value.status_code == 422

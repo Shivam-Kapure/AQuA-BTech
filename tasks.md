@@ -11,10 +11,10 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Add project ownership and enforce authorization on every project-scoped operation.
 - [ ] Add URL validation and an SSRF policy: approved schemes, host allow-list, blocked private/link-local ranges, redirect validation, and DNS-rebinding protections.
 - [x] Remove `verify=False` from security HTTP clients; make TLS verification configurable only for local development.
-- [ ] Define how `X-Aqua-Route-Jwt` is validated and passed to target requests, or remove the frontend feature.
-- [ ] Prevent generated scripts and subprocesses from inheriting application secrets.
-- [ ] Choose `pyproject.toml` + `uv.lock` as the canonical Python dependency source and update/remove the incomplete `requirements.txt`.
-- [ ] Add `.env.example`; remove secrets and runtime artifacts from version control.
+- [x] Define how `X-Aqua-Route-Jwt` is validated and passed to target requests, or remove the frontend feature.
+- [x] Prevent generated scripts and subprocesses from inheriting application secrets.
+- [x] Choose `pyproject.toml` + `uv.lock` as the canonical Python dependency source and update/remove the incomplete `requirements.txt`.
+- [x] Add `.env.example`; remove secrets and runtime artifacts from version control.
 
 ## P1 — Shared Test and Run Domain
 

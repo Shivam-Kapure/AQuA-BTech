@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     PLAYWRIGHT_SCRIPT_OUTPUT_DIR: str | None = "playwright_scripts"
     PLAYWRIGHT_ARTIFACTS_DIR: str = "playwright_artifacts"
     PLAYWRIGHT_RUN_TIMEOUT_S: float = 180.0
+    ZAP_IMAGE: str = "ghcr.io/zaproxy/zaproxy:stable"
+    ZAP_TIMEOUT_S: float = 300.0
 
     # Vector DB
     CHROMA_PATH: str = "data/chroma_db"

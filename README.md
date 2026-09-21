@@ -78,7 +78,7 @@ flowchart TB
     subgraph External["External Services"]
         LLM[LLM / LM Studio / Groq]
         Docker[Docker Engine]
-        ZAPContainer[zaproxy/zap2docker-stable]
+        ZAPContainer[ghcr.io/zaproxy/zaproxy:stable]
     end
     
     subgraph Database["MongoDB (Local)"]
@@ -118,9 +118,11 @@ The following diagram details the collections inside MongoDB and how the backend
 
 ```mermaid
 erDiagram
-    DATABASE ||--o{ PROJECTS : contains
-    DATABASE ||--o{ TEST_CASES_PROJECT : contains
-    DATABASE ||--o{ SECURITY_TESTS_PROJECT : contains
+    %% Core Relationships
+    PROJECTS ||--o{ TEST_CASES_PROJECT : "1:N (project_id)"
+    PROJECTS ||--o{ SECURITY_TESTS_PROJECT : "1:N (project_id)"
+    TEST_CASES_PROJECT ||--o| EXECUTION_RESULTS : "Embedded"
+    SECURITY_TESTS_PROJECT ||--o| EXECUTION_RESULTS : "Embedded"
     
     PROJECTS {
         ObjectId _id PK
@@ -133,31 +135,31 @@ erDiagram
     
     TEST_CASES_PROJECT {
         ObjectId _id PK
-        string project_id FK
+        ObjectId project_id FK "References PROJECTS._id"
         string test_id
         string name
         string description
         array steps
-        string status
         datetime created_at
         datetime updated_at
     }
     
     SECURITY_TESTS_PROJECT {
         ObjectId _id PK
-        string project_id FK
+        ObjectId project_id FK "References PROJECTS._id"
         string test_id
         string title
         string category
         string target
         string test_type
+    }
+    
+    EXECUTION_RESULTS {
         string status "PASS / FAIL / WARNING"
+        string failure_reason
         string finding
         string evidence
         string recommendation
+        datetime executed_at
     }
-    
-    ProjectRepository ||--o{ PROJECTS : Manages
-    TestCaseRepository ||--o{ TEST_CASES_PROJECT : "Dynamic Collection"
-    SecurityTestCaseRepository ||--o{ SECURITY_TESTS_PROJECT : "Dynamic Collection"
 ```

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.test_run_service import resume_single_test, run_single_test
-from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.auth import AuthenticatedUser, get_current_user, get_route_jwt
 
 router = APIRouter()
 
@@ -18,6 +18,7 @@ async def run_one_test(
     project_name: str,
     test_id: str,
     current_user: AuthenticatedUser = Depends(get_current_user),
+    route_jwt: str | None = Depends(get_route_jwt),
 ):
     """
     Run a single test case for the given project.
@@ -25,7 +26,7 @@ async def run_one_test(
     On completion returns status: passed | failed | waiting, and failure_reason if failed.
     """
     result = await run_single_test(
-        project_name=project_name, test_id=test_id, owner_id=current_user.id
+        project_name=project_name, test_id=test_id, owner_id=current_user.id, route_jwt=route_jwt
     )
 
     if result.get("error") == "project_not_found":
@@ -51,12 +52,14 @@ async def resume_one_test(
     test_id: str,
     payload: ResumePayload,
     current_user: AuthenticatedUser = Depends(get_current_user),
+    route_jwt: str | None = Depends(get_route_jwt),
 ):
     result = await resume_single_test(
         project_name=project_name,
         test_id=test_id,
         inputs=payload.inputs or {},
         owner_id=current_user.id,
+        route_jwt=route_jwt,
     )
 
     if result.get("error") == "project_not_found":

@@ -53,7 +53,7 @@ def _missing_positional_inputs(result: dict[str, Any]) -> list[dict[str, str]]:
 
 
 async def run_single_test(
-    project_name: str, test_id: str, *, owner_id: str | None = None
+    project_name: str, test_id: str, *, owner_id: str | None = None, route_jwt: str | None = None
 ) -> dict[str, Any]:
     """
     Run one test case: fetch it, generate a Playwright script from its steps,
@@ -150,6 +150,7 @@ async def run_single_test(
         script,
         timeout_seconds=settings.PLAYWRIGHT_RUN_TIMEOUT_S,
         artifact_subdir=artifact_subdir,
+        route_jwt=route_jwt,
     )
 
     artifacts = result.get("artifacts") or {}
@@ -244,6 +245,7 @@ async def resume_single_test(
     *,
     inputs: dict[str, str] | None = None,
     owner_id: str | None = None,
+    route_jwt: str | None = None,
 ) -> dict[str, Any]:
     """
     Resume a waiting test with user-provided runtime inputs.
@@ -292,6 +294,7 @@ async def resume_single_test(
         timeout_seconds=settings.PLAYWRIGHT_RUN_TIMEOUT_S,
         artifact_subdir=artifact_subdir,
         runtime_inputs=inputs or {},
+        route_jwt=route_jwt,
     )
 
     artifacts = result.get("artifacts") or {}

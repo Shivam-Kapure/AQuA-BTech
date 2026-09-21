@@ -7,7 +7,7 @@ import json
 import time
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import settings
@@ -86,3 +86,29 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return _decode_access_token(credentials.credentials)
+
+
+def validate_route_jwt(value: str | None) -> str | None:
+    """Validate the optional JWT forwarded to the user's target application."""
+    if value is None or not value.strip():
+        return None
+    token = value.strip()
+    parts = token.split(".")
+    if len(parts) != 3 or len(token) > 8192 or any(not part for part in parts):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="X-Aqua-Route-Jwt must be a compact JWT",
+        )
+    if any(ord(char) < 32 or ord(char) == 127 for char in token):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="X-Aqua-Route-Jwt contains invalid characters",
+        )
+    return token
+
+
+def get_route_jwt(
+    value: str | None = Header(default=None, alias="X-Aqua-Route-Jwt"),
+) -> str | None:
+    """FastAPI dependency for the optional target-application JWT."""
+    return validate_route_jwt(value)

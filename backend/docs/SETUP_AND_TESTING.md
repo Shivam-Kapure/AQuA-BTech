@@ -30,7 +30,12 @@ LM Studio selects the model by the request **model** parameter. Use one URL; set
 
 3. **Test case generation** sends `model=LLM_MODEL` (Llama). **Playwright script generation** and **agent** send `model=AGENT_LLM_MODEL` (Phi). Same URL, different model name.
 
-4. **Playwright scripts:** If `PLAYWRIGHT_SCRIPT_OUTPUT_DIR` is set, each run saves the generated script there; the API response includes `script_path`.
+4. **ZAP scans:** Docker must be installed and the backend process must be allowed
+   to invoke the Docker daemon. The scanner uses `ZAP_IMAGE` (default
+   `ghcr.io/zaproxy/zaproxy:stable`) and `ZAP_TIMEOUT_S`; set both explicitly in
+   production.
+
+5. **Playwright scripts:** If `PLAYWRIGHT_SCRIPT_OUTPUT_DIR` is set, each run saves the generated script there; the API response includes `script_path`.
 
 ## How to test
 
