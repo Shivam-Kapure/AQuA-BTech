@@ -46,7 +46,7 @@ This is the proposed implementation backlog from the architecture review. Review
 - [x] Add LLM-assisted case generation only after schema validation and structured execution are working.
 - [x] Add optional Postman collection import after OpenAPI support is stable.
 - [x] Add API run/list/detail endpoints for API executions.
-- [ ] Add generated OpenAPI documentation examples for all API contracts.
+- [x] Add generated OpenAPI documentation examples and response models for API contracts.
 
 ## P1 — Security Testing Completion
 

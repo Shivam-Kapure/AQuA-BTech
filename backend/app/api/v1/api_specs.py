@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import AuthenticatedUser, get_current_user
-from app.models.api_spec import ApiRunRecord, ApiSpec, ApiWorkflowStep
+from app.models.api_spec import ApiRunRecord, ApiSpec, ApiSpecRecord, ApiWorkflowStep
 from app.services.openapi_parser import parse_openapi_document
 from app.services.openapi_import import build_api_spec_record
 from app.db.repositories.api_spec_repo import ApiSpecRepository
@@ -30,14 +30,20 @@ class ApiSpecImportRequest(BaseModel):
     source_url: str | None = None
     project_name: str | None = None
 
+    model_config = {"json_schema_extra": {"examples": [{"document": {"openapi": "3.0.3", "info": {"title": "Example", "version": "1.0.0"}, "paths": {}}}]}}
+
 
 class PostmanImportRequest(BaseModel):
     collection: dict[str, Any]
+
+    model_config = {"json_schema_extra": {"examples": [{"collection": {"info": {"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"}, "item": []}}]}}
 
 
 class ApiCaseGenerationRequest(BaseModel):
     spec: ApiSpec
     count: int = 10
+
+    model_config = {"json_schema_extra": {"examples": [{"spec": {"title": "Example", "version": "1.0.0", "openapi_version": "3.0.3", "operations": []}, "count": 5}]}}
 
 
 class ApiSecurityScanRequest(BaseModel):
@@ -56,7 +62,7 @@ async def parse_api_spec(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
-@router.post("/execute")
+@router.post("/execute", response_model=ApiRunRecord)
 async def execute_api_spec_test(
     payload: ApiTestCase,
     _current_user: AuthenticatedUser = Depends(get_current_user),
@@ -81,7 +87,7 @@ async def execute_api_workflow_endpoint(
     return await execute_api_workflow(steps)
 
 
-@router.post("/import")
+@router.post("/import", response_model=ApiSpecRecord)
 async def import_api_spec(
     payload: ApiSpecImportRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -109,7 +115,7 @@ async def import_api_spec(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/")
+@router.get("/", response_model=list[ApiSpecRecord])
 async def list_api_specs(
     project_name: str | None = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -151,7 +157,7 @@ async def scan_api_spec_security(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/runs")
+@router.get("/runs", response_model=list[ApiRunRecord])
 async def list_api_runs(
     project_name: str | None = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -160,7 +166,7 @@ async def list_api_runs(
     return [run.model_dump(mode="json") for run in runs]
 
 
-@router.get("/runs/{run_id}")
+@router.get("/runs/{run_id}", response_model=ApiRunRecord)
 async def get_api_run(run_id: str, current_user: AuthenticatedUser = Depends(get_current_user)) -> dict[str, Any]:
     run = await ApiRunRepository().get(run_id, owner_id=current_user.id)
     if run is None:
