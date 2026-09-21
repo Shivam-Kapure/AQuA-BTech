@@ -13,6 +13,7 @@ export default function ApiTestingPage() {
   const [spec, setSpec] = useState(null)
   const [findings, setFindings] = useState([])
   const [savedFindings, setSavedFindings] = useState([])
+  const [runningOperation, setRunningOperation] = useState(null)
   const [runs, setRuns] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -67,6 +68,26 @@ export default function ApiTestingPage() {
     }
   }
 
+  async function executeOperation(operation) {
+    if (!spec?.base_urls?.[0] || operation.path.includes('{')) return
+    setRunningOperation(operation.operation_id)
+    try {
+      const { data } = await client.post('/api/v1/api-specs/execute', {
+        name: operation.operation_id,
+        project_name: spec.title,
+        method: operation.method,
+        url: `${spec.base_urls[0].replace(/\/$/, '')}/${operation.path.replace(/^\//, '')}`,
+        assertions: [],
+      })
+      setRuns((previous) => [data, ...previous.filter((run) => run.id !== data.id)])
+      toast.success(`${operation.operation_id} executed`)
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'API execution failed')
+    } finally {
+      setRunningOperation(null)
+    }
+  }
+
   async function scan() {
     if (!spec) return
     setLoading(true)
@@ -108,7 +129,7 @@ export default function ApiTestingPage() {
               {spec.operations.map((operation) => (
                 <div key={operation.operation_id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                   <div className="flex items-center gap-2"><span className="rounded bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-700">{operation.method}</span><span className="font-mono text-sm dark:text-slate-200">{operation.path}</span></div>
-                  <p className="mt-1 text-xs text-slate-500">{operation.operation_id} · {operation.auth_schemes.length ? operation.auth_schemes.join(', ') : 'authentication not declared'}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-slate-500">{operation.operation_id} · {operation.auth_schemes.length ? operation.auth_schemes.join(', ') : 'authentication not declared'}</p><button type="button" onClick={() => executeOperation(operation)} disabled={!spec.base_urls?.[0] || operation.path.includes('{') || runningOperation === operation.operation_id} className="btn-secondary px-2 py-1 text-xs">{runningOperation === operation.operation_id ? 'Running…' : 'Run'}</button></div>
                 </div>
               ))}
             </div>
