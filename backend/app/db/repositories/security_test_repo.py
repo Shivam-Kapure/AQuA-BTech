@@ -24,6 +24,11 @@ class SecurityTestCaseRepository:
             raise RuntimeError("MongoDB is not connected")
         return db[self.collection_name]
 
+    async def ensure_indexes(self) -> None:
+        """Enforce logical security-test IDs within this legacy project collection."""
+        await self.collection.create_index([("project_id", 1), ("test_id", 1)], unique=True, sparse=True)
+        await self.collection.create_index([("project_id", 1), ("created_at", -1)])
+
     async def create_many(
         self,
         test_cases: list[SecurityTestCaseCreate],
@@ -32,6 +37,7 @@ class SecurityTestCaseRepository:
     ) -> list[SecurityTestCaseInDB]:
         if not test_cases:
             return []
+        await self.ensure_indexes()
         now = datetime.utcnow()
         docs: list[dict[str, Any]] = []
         for tc in test_cases:

@@ -13,7 +13,10 @@ from app.models.api_spec import ApiAssertion, ApiTestCase
 
 
 SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "x-api-key"}
-SENSITIVE_KEYS = {"password", "token", "secret", "authorization", "access_token", "refresh_token"}
+SENSITIVE_KEYS = {
+    "password", "passwd", "token", "secret", "authorization", "access_token", "refresh_token",
+    "api_key", "apikey", "client_secret", "private_key", "cookie", "session",
+}
 VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
@@ -29,10 +32,20 @@ def _substitute(value: Any, variables: dict[str, str]) -> Any:
 
 def _redact(value: Any) -> Any:
     if isinstance(value, dict):
-        return {key: "[REDACTED]" if key.lower() in SENSITIVE_KEYS else _redact(item) for key, item in value.items()}
+        return {
+            key: "[REDACTED]" if _is_sensitive_key(str(key)) else _redact(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [_redact(item) for item in value]
     return value
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_").replace(" ", "_")
+    return normalized in SENSITIVE_KEYS or any(
+        marker in normalized for marker in ("password", "secret", "token", "api_key", "apikey")
+    )
 
 
 def _json_path(value: Any, path: str | None) -> Any:
