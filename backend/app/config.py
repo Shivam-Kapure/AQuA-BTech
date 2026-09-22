@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # Playwright artifacts
     PLAYWRIGHT_SCRIPT_OUTPUT_DIR: str | None = "playwright_scripts"
     PLAYWRIGHT_ARTIFACTS_DIR: str = "playwright_artifacts"
+    ARTIFACT_RETENTION_DAYS: int = 30
+    ARTIFACT_MAX_BYTES: int = 10 * 1024 * 1024
     PLAYWRIGHT_RUN_TIMEOUT_S: float = 180.0
     ZAP_IMAGE: str = "ghcr.io/zaproxy/zaproxy:stable"
     ZAP_TIMEOUT_S: float = 300.0

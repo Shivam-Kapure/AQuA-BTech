@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "b33ef7e7f4d2a7ef0a61f6019f964f60fbd4b62a",
-    "indexed_at": "2026-09-21T15:54:49Z",
+    "commit": "ed4711b4ee3fc3eaad852ae109320db6f2e57d13",
+    "indexed_at": "2026-09-22T12:52:07Z",
     "project": "AQUA",
-    "nodes": 675,
-    "edges": 2524,
-    "original_size": 3604480,
-    "compressed_size": 595300,
+    "nodes": 856,
+    "edges": 3247,
+    "original_size": 4194304,
+    "compressed_size": 701980,
     "compression_level": 9
 }

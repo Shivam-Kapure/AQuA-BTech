@@ -19,14 +19,16 @@ Backend URL: `http://127.0.0.1:8000`
 Quick health check:
 
 ```bash
-curl http://127.0.0.1:8000/
+curl http://127.0.0.1:8000/health/live
 ```
 
 Expected response:
 
 ```json
-{"message":"Agentic Testing System Running"}
+{"status":"ok"}
 ```
+
+Readiness, including MongoDB connectivity, is available at `/health/ready` and returns HTTP 503 until the database is reachable.
 
 ## 2) Start frontend
 

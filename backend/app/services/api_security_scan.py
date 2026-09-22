@@ -9,6 +9,20 @@ from app.core.url_security import validate_target_url
 from app.models.api_spec import ApiSpec
 
 SENSITIVE_RESPONSE_KEYS = {"password", "passwd", "secret", "token", "access_token", "refresh_token"}
+OBJECT_PATH_MARKERS = {"id", "uuid", "key", "user", "account", "order", "item", "resource"}
+PRIVILEGED_PATH_MARKERS = {"admin", "manage", "internal", "staff", "moderator"}
+BODY_METHODS = {"POST", "PUT", "PATCH"}
+FINDING_SEVERITIES = {
+    "authentication": "high", "bola_candidate": "high", "bfla_candidate": "high",
+    "schema_abuse": "medium", "excessive_data_exposure": "high", "error_leakage": "medium",
+    "schema_validation": "medium", "cors": "medium", "rate_limit": "low", "reachability": "low",
+}
+
+
+def _with_severities(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for finding in findings:
+        finding["severity"] = FINDING_SEVERITIES.get(finding["category"], "medium")
+    return findings
 
 
 def _sensitive_keys(value: Any, prefix: str = "") -> list[str]:
@@ -28,6 +42,47 @@ def _sensitive_keys(value: Any, prefix: str = "") -> list[str]:
     return []
 
 
+def _path_segments(path: str) -> list[str]:
+    return [segment.lower() for segment in path.split("/") if segment]
+
+
+def _static_authorization_findings(operation: Any) -> list[dict[str, Any]]:
+    """Identify authorization surfaces for an explicitly authorized active probe later."""
+    segments = _path_segments(operation.path)
+    normalized_segments = {segment.strip("{}_") for segment in segments}
+    has_dynamic_segment = any(segment.startswith("{") and segment.endswith("}") for segment in segments)
+    findings: list[dict[str, Any]] = []
+    if operation.auth_schemes and (has_dynamic_segment or any(segment in OBJECT_PATH_MARKERS or any(marker in segment for marker in OBJECT_PATH_MARKERS) for segment in normalized_segments)):
+        findings.append({
+            "operation_id": operation.operation_id,
+            "category": "bola_candidate",
+            "status": "WARNING",
+            "finding": "Object-scoped route requires a multi-principal authorization probe to verify BOLA resistance; no active probe was run.",
+        })
+    if operation.auth_schemes and (normalized_segments & PRIVILEGED_PATH_MARKERS or operation.method.upper() in {"DELETE", "PATCH"}):
+        findings.append({
+            "operation_id": operation.operation_id,
+            "category": "bfla_candidate",
+            "status": "WARNING",
+            "finding": "Privileged route requires role-separated authorization testing to verify BFLA resistance; no active probe was run.",
+        })
+    if operation.method.upper() in BODY_METHODS and operation.request_schema is None:
+        findings.append({
+            "operation_id": operation.operation_id,
+            "category": "schema_abuse",
+            "status": "WARNING",
+            "finding": "State-changing operation has no declared request schema; malformed and unexpected fields cannot be passively evaluated.",
+        })
+    elif operation.request_schema and operation.request_schema.get("type") == "object" and operation.request_schema.get("additionalProperties", True):
+        findings.append({
+            "operation_id": operation.operation_id,
+            "category": "schema_abuse",
+            "status": "WARNING",
+            "finding": "Request schema permits additional properties; review strict input validation for schema-abuse resistance.",
+        })
+    return findings
+
+
 async def scan_api_security(
     spec: ApiSpec, *, client: httpx.AsyncClient | None = None, active: bool = False
 ) -> list[dict[str, Any]]:
@@ -36,10 +91,11 @@ async def scan_api_security(
         raise ValueError("Active API security probes require an explicit worker policy and are not enabled")
     findings: list[dict[str, Any]] = []
     for operation in spec.operations:
+        findings.extend(_static_authorization_findings(operation))
         if not operation.auth_schemes:
             findings.append({"operation_id": operation.operation_id, "category": "authentication", "status": "WARNING", "finding": "No authentication scheme is declared for this operation."})
     if not spec.base_urls:
-        return findings
+        return _with_severities(findings)
     own_client = client is None
     client = client or httpx.AsyncClient(follow_redirects=False, timeout=15.0)
     try:
@@ -72,4 +128,4 @@ async def scan_api_security(
     finally:
         if own_client:
             await client.aclose()
-    return findings
+    return _with_severities(findings)

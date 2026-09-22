@@ -19,6 +19,13 @@ class ApiSpecRepository:
             raise RuntimeError("MongoDB is not connected")
         return db[self.collection_name]
 
+    async def ensure_indexes(self) -> None:
+        await self.collection.create_index([("owner_id", 1), ("project_name", 1), ("version", -1)])
+        await self.collection.create_index(
+            [("owner_id", 1), ("project_name", 1), ("checksum", 1)],
+            unique=True,
+        )
+
     async def create(self, spec: ApiSpecRecord) -> ApiSpecRecord:
         doc: dict[str, Any] = spec.model_dump(exclude={"id"})
         doc["created_at"] = datetime.utcnow()

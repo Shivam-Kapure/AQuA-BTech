@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+
+from app.models.test_run import RunStatus
 
 
 class ApiOperation(BaseModel):
@@ -66,7 +68,17 @@ class ApiRunRecord(BaseModel):
     project_name: str | None = None
     test_name: str
     result: dict[str, Any]
+    status: RunStatus = RunStatus.queued
+    duration_ms: float | None = None
+    runner_version: str | None = None
+    generation_mode: str | None = None
+    inputs_ref: str | None = None
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    failure_details: dict[str, Any] | None = None
+    correlation_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class ApiFindingRecord(BaseModel):
@@ -76,8 +88,14 @@ class ApiFindingRecord(BaseModel):
     operation_id: str | None = None
     category: str
     status: str
-    severity: str = "medium"
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
     finding: str
+    fingerprint: str | None = None
+    occurrences: int = 1
+    first_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    remediation_status: str = "open"
+    remediation_note: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
