@@ -117,3 +117,8 @@ cd frontend && npm run build
 ## 2026-09-22 Evidence Redaction Progress
 
 - Expanded persisted API-evidence redaction to cover compound and normalized secret field names such as `clientSecret` and `api-key`, in addition to existing tokens, passwords, headers, and cookies.
+
+## 2026-09-22 Dependency Readiness Progress
+
+- Extended `/health/ready` to report MongoDB, the process-local worker mode and active job count, and LLM provider readiness.
+- LLM probing is opt-in via `LLM_READINESS_REQUIRED=false` by default so local Compose deployments without an LLM remain usable; enable it when LM Studio or Groq availability should gate readiness.

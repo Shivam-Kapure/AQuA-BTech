@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "meta-llama-3-8b-instruct"
     LLM_TEMPERATURE: float = 0.2
     LLM_TIMEOUT_S: float = 180.0
+    LLM_READINESS_REQUIRED: bool = False
+    LLM_READINESS_TIMEOUT_S: float = 2.0
     LLM_MAX_TOKENS: int | None = None
 
     # Agent / Playwright script generation (can use a separate LM Studio instance/model)
