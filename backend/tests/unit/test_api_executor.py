@@ -13,7 +13,11 @@ async def test_execute_api_test_asserts_and_redacts(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(settings, "ALLOW_PRIVATE_TARGETS", True)
 
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, headers={"content-type": "application/json", "set-cookie": "sid=secret"}, json={"ok": True, "token": "hidden"})
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json", "set-cookie": "sid=secret"},
+            json={"ok": True, "token": "hidden", "clientSecret": "hidden", "api-key": "hidden"},
+        )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     result = await execute_api_test(ApiTestCase(
@@ -34,4 +38,6 @@ async def test_execute_api_test_asserts_and_redacts(monkeypatch: pytest.MonkeyPa
 
     assert result["passed"] is True
     assert result["body"]["token"] == "[REDACTED]"
+    assert result["body"]["clientSecret"] == "[REDACTED]"
+    assert result["body"]["api-key"] == "[REDACTED]"
     assert result["headers"]["set-cookie"] == "[REDACTED]"

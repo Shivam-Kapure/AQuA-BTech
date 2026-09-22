@@ -113,3 +113,7 @@ cd frontend && npm run build
 
 - Added owner-scoped unique project-name indexes and per-project unique logical-ID indexes for UI and security test cases, with startup creation for the stable projects collection and creation-path enforcement for legacy per-project collections.
 - Added repository index regression tests. The broader migration from name-specific collections to stable project-ID collections remains a separate task.
+
+## 2026-09-22 Evidence Redaction Progress
+
+- Expanded persisted API-evidence redaction to cover compound and normalized secret field names such as `clientSecret` and `api-key`, in addition to existing tokens, passwords, headers, and cookies.
