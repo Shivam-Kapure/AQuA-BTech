@@ -20,6 +20,11 @@ class ProjectRepository:
             raise RuntimeError("MongoDB is not connected")
         return db[self.collection_name]
 
+    async def ensure_indexes(self) -> None:
+        """Keep project names unique within an owner's namespace."""
+        await self.collection.create_index([("owner_id", 1), ("name", 1)], unique=True)
+        await self.collection.create_index([("owner_id", 1), ("created_at", -1)])
+
     async def create_one(self, project: ProjectCreate, *, owner_id: str) -> ProjectInDB:
         now = datetime.utcnow()
         doc: dict[str, Any] = project.model_dump()

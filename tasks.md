@@ -19,7 +19,7 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P1 — Shared Test and Run Domain
 
 - [ ] Replace project-name-specific MongoDB collections with stable collections keyed by `project_id`.
-- [ ] Add indexes and uniqueness constraints for projects and logical test IDs.
+- [x] Add indexes and uniqueness constraints for projects and logical test IDs.
 - [x] Implement `TestRun` and artifact metadata models/repositories.
 - [ ] Preserve every execution attempt instead of overwriting test status.
 - [ ] Standardize statuses across UI, API, and security tests (`queued`, `running`, `waiting`, `passed`, `failed`, `warning`, `cancelled`).

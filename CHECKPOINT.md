@@ -108,3 +108,8 @@ cd frontend && npm run build
 - Finding severity is now validated as `low`, `medium`, `high`, or `critical` and assigned consistently from the passive-check category.
 - Marked the completed API-operation-driven passive security coverage tasks in `tasks.md`.
 - Latest backend validation: `pytest` 43 passed. DNS-rebinding-safe outbound connection pinning, isolated active probes/ZAP, a broker-backed worker, and the remaining review decisions remain intentionally open.
+
+## 2026-09-22 Database Integrity Progress
+
+- Added owner-scoped unique project-name indexes and per-project unique logical-ID indexes for UI and security test cases, with startup creation for the stable projects collection and creation-path enforcement for legacy per-project collections.
+- Added repository index regression tests. The broader migration from name-specific collections to stable project-ID collections remains a separate task.

@@ -9,11 +9,13 @@ from app.db.repositories.api_run_repo import ApiRunRepository
 from app.db.repositories.api_spec_repo import ApiSpecRepository
 from app.db.repositories.test_run_repo import TestRunRepository
 from app.db.repositories.artifact_repo import ArtifactRepository
+from app.db.repositories.project_repo import ProjectRepository
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    await ProjectRepository().ensure_indexes()
     await ApiSpecRepository().ensure_indexes()
     await ApiRunRepository().ensure_indexes()
     await ApiFindingRepository().ensure_indexes()
