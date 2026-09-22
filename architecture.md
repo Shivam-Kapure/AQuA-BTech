@@ -1,111 +1,93 @@
-# AQUA (Agentic Quality Assurance) - System Architecture
+# AQUA System Architecture
 
-AQUA is a dynamic, AI-driven web application designed to automatically generate, execute, and validate Playwright software tests from natural language steps.
+AQUA has two user-facing testing paths behind one authenticated FastAPI service:
 
-## High-Level System Diagram
+1. Browser testing turns natural-language or structured steps into Playwright scripts and executes them in a subprocess.
+2. API testing imports an API contract, normalizes its operations, executes deterministic HTTP cases, and runs passive security analysis over the same operation catalog.
 
-```text
-===================================================================================================
-                                 [1] FRONTEND (Vite / React / TailwindCSS)
-===================================================================================================
-                                                  |
- [ Dashboard UI ] <---(HTTP REST)---+             | -> [ NeedsActionModal ] (Prompts for Inputs)
-                                    |             |         ^
- [ Test Case Management ]           |             |         | (Sends Runtime Variables via Env)
-                                    v             |         |
-===================================================================================================
-                                 [2] BACKEND (FastAPI / Uvicorn / Python)
-===================================================================================================
-                                    |
-                           (API Controllers)
-                                    |
-              +-------------------------------------------+
-              |           [ Test Run Service ]            |
-              +-------------------------------------------+
-                                    |
-                                    v
-===================================================================================================
-                         [3] SCRIPT GENERATION ENGINE (playwright_generator.py)
-===================================================================================================
-                                    |
-    +-------------------------------+-------------------------------+
-    |                                                               |
-(Attempt LLM Generation)                               (Fallback to Deterministic Mode)
-    |                                                               |
-    v                                                               v
-[ RAG Knowledge Manager ]                               [ parse_steps_strictly() ]
-  - Converts User Steps -> Embeddings                     - if 'action' == click -> page.click()
-  - Queries ChromaDB (Local Vector DB)                    - if 'action' == fill  -> page.fill()
-  - Extracts HTML context / Selectors                     - Maps Env Variables
-    |                                                               |
-    v                                                               |
-[ ChatOpenAI Client (LM Studio) ]                                   |
-  - Prompt: "Generate sync_playwright script"                       |
-  - Restricts page.query_selector() usage                           |
-    |                                                               |
-    +-------------------------------+-------------------------------+
-                                    |
-                                    v
-                     (Outputs: raw_script.py buffer)
-                                    |
-===================================================================================================
-                           [4] EXECUTION ENGINE (playwright_runner.py)
-===================================================================================================
-                                    |
-  Runs via Subprocess >>> `python -c "import sys; exec(...) "`
-                                    |
-      +-----------------------------+-----------------------------+
-      |                             |                             |
-[ Success ]                   [ Waiting ]                   [ Failed ]
-- Captures DOM (Before)     - Needs Credentials/Inputs    - Exception / AssertionError
-- Captures DOM (After)      - Exits early (Code 2)        - Invalid Selectors
-- Takes Screenshot          - Prints __ARTIFACT_JSON__    - Bad Auth
-      |                             |                             |
-      |                 <-----------+                           -----
-      |                (Flags Frontend Modal)                     |
-      v                                                           v
-===================================================================================================
-                           [5] POST-EXECUTION VALIDATION & Storage
-===================================================================================================
-      |
-[ Visual Snapshot Validator ] ---> (Parses DOM After/Screenshots + Evaluates HTML Outcomes)
-      |
-      +---> [ MongoDB (Motor) ]
-              - Updates `test_cases` Collection
-              - Inserts Execution Metadata / Status ('passed', 'failed', 'waiting')
-              |
-              +--- (Sends final status block to Frontend)
+## Component view
+
+```mermaid
+flowchart TB
+    User((User)) --> UI[React/Vite UI]
+    UI --> Client[Axios API client]
+    Client --> API[FastAPI /api/v1]
+    API --> Auth[Auth and ownership]
+    API --> Browser[Browser routes]
+    API --> Api[API routes]
+    API --> Security[Security routes]
+    API --> LLMRoutes[LLM routes]
+    Browser --> Generation[Browser generation]
+    Browser --> Runs[Test execution and run services]
+    Generation --> LLM[LM Studio or Groq]
+    Generation --> RAG[Optional Chroma/RAG context]
+    Runs --> Playwright[Playwright subprocess]
+    Api --> Import[OpenAPI/Postman import]
+    Import --> Catalog[Normalized operation catalog]
+    Catalog --> HttpRunner[Deterministic httpx runner]
+    Catalog --> Passive[Passive API security checks]
+    HttpRunner --> Targets[Approved HTTP targets]
+    Passive --> Findings[Finding history and remediation]
+    Api --> Queue[Process-local async queue]
+    Queue --> ApiRuns[Durable API runs]
+    API --> Repositories[Owner-scoped repositories]
+    Repositories --> Mongo[(MongoDB)]
+    Runs --> Artifacts[Redacted retained artifacts]
+    Artifacts --> Mongo
+    Security --> ZAP[Optional Docker ZAP integration]
 ```
 
----
+## Frontend
 
-## Technical Stack & Modules in Detail
+The frontend is a Vite/React application with React Router, Axios, and Zustand stores for authentication and theme state. Its main surfaces are:
 
-### 1. Frontend (React / Vite)
-- **Frameworks**: Built using React and Vite for blazing-fast development. Styled using TailwindCSS to ensure a dynamic, responsive dark/light developer dashboard.
-- **State Management & Data Fetching**: Utilizes `react-query` to maintain a living sync between the application UI and the FastAPI backend.
-- **Special Interactions (`NeedsActionModal`)**: One of the core features of the system. If an automated script hits a login portal and does not know the credentials, the backend pauses execution, signals a "Waiting" status, and the frontend pops up a `NeedsActionModal`. The user inputs variables which are passed down to the Playwright subprocess as secure environmental variables.
+- `ProjectsPage` and `ProjectDetailPage` for project and browser-test workflows.
+- `ApiTestingPage` for spec import, operation editing, API execution, workflows, run history, passive scans, and finding remediation.
+- `LoginPage` and protected routing for authenticated access.
+- `NeedsActionModal` for browser runs that require user input.
 
-### 2. Backend API (FastAPI)
-- **Framework**: `FastAPI` managed by `Uvicorn`, executing completely asynchronously.
-- **Configuration Layers**: Uses Pydantic V2 `SettingsConfigDict` to load and maintain settings. Includes connection mappings to MongoDB and Local AI logic variables.
-- **Database (`app/db`)**: Async MongoDB operations via the `Motor` client, structured into repository patters like `ProjectRepository` and `TestCaseRepository`.
+## Backend layers
 
-### 3. Script Generation Engine (`playwright_generator.py`)
-This is the core "intelligence" of the platform that bridges natural language to Python AST.
-It operates in two dynamic phases:
-1. **The LLM RAG Iteration**: 
-   - A step array is piped to the `KnowledgeManager` which references `ChromaDB` containing pre-scanned knowledge or component structures for the target page. 
-   - Uses `qwen2.5-coder` (or Llama/DeepSeek) served exclusively through local API endpoints (such as `LM Studio`).
-   - The LLM strictly generates syntactic `playwright.sync_api` commands. It is explicitly programmed **never** to use unstable locator structures like `page.query_selector()` (which returns `NoneTypes` and crashes processes), favoring `page.locator().click()` setups.
-2. **The Deterministic Fallback**:
-   - If the LLM throws a generation error or is offline, the generator routes identically to a rigid deterministic Python string template. It hard-maps JSON actions such as `{"action": "click", "selector": "#id"}` directly into Playwright syntax.
+`backend/app/api/v1/` contains route handlers grouped by capability. Models and persistence are separated from service logic:
 
-### 4. Playwright Subprocess Shell
-Instead of running generated code dangerously inside the main Uvicorn loop, the system streams the generated raw python string into a safe python Subprocess.
-- **Artifact Standard Out**: The sandboxed script is designed to print structural dictionaries tagged with `__ARTIFACT_JSON__`. 
-- **DOM Snapshots**: Playwright scripts take a localized snapshot of the HTML tree prior to acting (`dom_before.html`) and after execution (`dom_after.html`), checking these outputs against the expected parameters without making secondary LLM trips.
+- `models/` defines projects, test cases, API specs/operations, API runs/findings, shared run metadata, and status vocabulary.
+- `db/repositories/` owns MongoDB access and owner-scoped queries. Project names are unique per owner; legacy per-project test collections enforce logical-ID uniqueness per project. A complete migration to stable project-ID collections remains planned.
+- `services/` contains parsing/import, deterministic API execution, workflow execution, browser generation/execution, security checks, reporting, and the async job boundary.
+- `core/` contains authentication, URL/SSRF policy, browser control, LLM clients, and RAG helpers.
 
-### 5. Backend Testing Structure
-- Uses `pytest` standard.
-- Models explicitly include `__test__ = False` descriptors inside base PyDantic models (`TestStep`, `TestCaseInDB`) to avoid triggering false-positive test collections. Integration (`test_api.py`) and Unit tests (`test_agents.py`, `test_services.py`) secure the functionality.
+## Run and job lifecycle
+
+Shared statuses are `queued`, `running`, `waiting`, `passed`, `failed`, `warning`, and `cancelled`. API runs persist correlation IDs, timing, runner/generation metadata, evidence, and failure details. The current `AsyncJobQueue` provides bounded timeout, retry, and cancellation behavior inside one backend process; it is not a distributed worker and should not be horizontally scaled.
+
+Browser execution remains subprocess-based so generated code does not execute inside the Uvicorn process. Secrets are passed only through controlled runtime inputs and are excluded from generated scripts, logs, and persisted evidence.
+
+## API-testing flow
+
+```mermaid
+sequenceDiagram
+    participant U as UI
+    participant A as API routes
+    participant I as Import/parser
+    participant R as httpx runner
+    participant S as Passive scanner
+    participant M as MongoDB
+    U->>A: Import OpenAPI or Postman document
+    A->>I: Validate and normalize operations
+    I-->>A: Spec, catalog, checksum
+    A->>M: Store owner-scoped version
+    U->>A: Execute operation or workflow
+    A->>R: Queue deterministic request
+    R-->>A: Redacted response/assertion evidence
+    A->>M: Store API run and status
+    U->>A: Start passive security scan
+    A->>S: Scan catalog and approved targets
+    S->>M: Upsert fingerprinted findings
+```
+
+URL imports and target requests accept only HTTP(S), validate host policy and DNS results, block private/reserved targets by default, and do not follow redirects automatically. OpenAPI imports validate an explicit one-hop redirect before following it. DNS-rebinding-safe connection pinning and active/destructive probes are still deployment-policy work.
+
+## Deployment boundaries
+
+The default Compose stack contains MongoDB, the backend, and an Nginx-served frontend. LM Studio/Groq is external and optional unless strict LLM readiness is enabled. ZAP is an opt-in container profile. Keep `AUTH_SECRET_KEY` in the environment or a managed secret store; do not commit runtime `.env` files.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for commands, health checks, scaling limitations, and security notes.

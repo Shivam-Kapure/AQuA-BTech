@@ -1,167 +1,86 @@
-# PBL 2.2 - Run Guide
+# AQUA — Agentic Quality Assurance
 
-This repository has two separate apps:
+AQUA is a FastAPI + React application for generating and executing browser and API tests, then reviewing their evidence and security findings.
 
-- `backend` (FastAPI)
-- `frontend` (Vite + React)
+## What works today
 
-Run them in separate terminals.
+- Authenticated project and test-case workflows with signed expiring tokens.
+- Browser-test generation and execution through Playwright subprocesses, including waiting for user-provided inputs.
+- OpenAPI and Postman import with normalized API operations.
+- API request execution with variables, Bearer/Basic auth, workflows, assertions, response evidence, and redaction.
+- Passive API security checks for authentication declarations, BOLA/BFLA candidate surfaces, schema abuse, CORS, rate-limit signals, schema mismatches, sensitive fields, reachability, and error responses.
+- Durable API run and finding history with statuses, remediation state, severity, fingerprints, and occurrence history.
+- SSRF protections for target URLs and explicit redirect validation.
+- Docker Compose deployment for MongoDB, the backend, and the frontend.
 
-## 1) Start backend
+Active or destructive API security probes remain fail-closed until an isolated worker policy and authorization boundary are approved. The current async queue is process-local and must not be horizontally scaled.
+
+## Quick start with Docker
+
+From the repository root:
+
+```bash
+export AUTH_SECRET_KEY="replace-with-a-long-random-value"
+docker compose up --build
+```
+
+Open the UI at [http://localhost:8080](http://localhost:8080). The API is available at [http://localhost:8000](http://localhost:8000).
+
+```bash
+curl http://localhost:8000/health/live
+curl http://localhost:8000/health/ready
+```
+
+Readiness reports MongoDB, the process-local worker, and the configured LLM provider. Set `LLM_READINESS_REQUIRED=true` to make an unavailable LLM fail readiness; it is non-blocking by default because the Compose stack does not include an LLM service.
+
+The optional ZAP service is isolated behind the Compose profile:
+
+```bash
+docker compose --profile security up zap
+```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for deployment constraints and production secret handling.
+
+## Local development
+
+Prerequisites: Python 3.11+, `uv`, Node.js/npm, and MongoDB. LM Studio is optional for deterministic API tests and browser fallback flows, but required for LLM-assisted generation. The default LM Studio endpoint is `http://localhost:1234`.
+
+Backend:
 
 ```bash
 cd backend
+uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-Backend URL: `http://127.0.0.1:8000`
-
-Quick health check:
-
-```bash
-curl http://127.0.0.1:8000/health/live
-```
-
-Expected response:
-
-```json
-{"status":"ok"}
-```
-
-Readiness, including MongoDB connectivity, is available at `/health/ready` and returns HTTP 503 until the database is reachable.
-
-## 2) Start frontend
+Frontend, in a second terminal:
 
 ```bash
 cd frontend
+npm ci
 npm run dev
 ```
 
-Frontend URL: `http://localhost:5173`
+The Vite development server runs at [http://localhost:5173](http://localhost:5173).
 
-## Common startup mistakes
+Copy `backend/.env.example` to `backend/.env` and set a non-default `AUTH_SECRET_KEY`. For local development, `ALLOW_PRIVATE_TARGETS=true` is available only when intentionally testing local targets; production deployments should keep private-target access disabled.
 
-- Running `npm run dev` from repo root (fails because root has no `package.json`).
-- Running backend with system Python that does not have `uvicorn`.
-- Not running backend and frontend in separate terminals.
+## Validation
 
-## 3) System Architecture
-
-Below is the updated system design architecture detailing both the UI Testing and Security Testing pipelines.
-
-```mermaid
-flowchart TB
-    User((User))
-    
-    subgraph Frontend["Frontend (Vite + React)"]
-        UI[Dashboard UI]
-    end
-    
-    subgraph Backend["Backend (FastAPI / Uvicorn)"]
-        Router[API Router]
-        
-        subgraph UITesting["UI Testing Agent"]
-            UIGen[Test Generation Service]
-            UIRun[Test Run Service]
-            PWGen[Playwright Generator]
-            PWRun[Playwright Subprocess]
-        end
-        
-        subgraph SecurityTesting["Security Testing Agent"]
-            SecGen[Security Generation Service]
-            SecRun[Security Run Service]
-            SecCheck[Predefined Python Checkers]
-            ZapScan[OWASP ZAP Scanner Module]
-        end
-        
-        DB[Database Repositories]
-    end
-    
-    subgraph External["External Services"]
-        LLM[LLM / LM Studio / Groq]
-        Docker[Docker Engine]
-        ZAPContainer[ghcr.io/zaproxy/zaproxy:stable]
-    end
-    
-    subgraph Database["MongoDB (Local)"]
-        Mongo[(MongoDB Database)]
-    end
-
-    User -->|Interacts| UI
-    UI -->|REST API| Router
-    Router -->|/generate| UIGen
-    Router -->|/execute| UIRun
-    Router -->|/security/generate| SecGen
-    Router -->|/security/.../execute| SecRun
-    Router -->|/security/zap-scan| ZapScan
-    
-    UIGen -->|Prompts for UI Tests| LLM
-    UIRun -->|Calls| PWGen
-    PWGen -->|Generates Script| LLM
-    UIRun -->|Executes Script| PWRun
-    
-    SecGen -->|Prompts for Defensive Tests| LLM
-    SecRun -->|Executes| SecCheck
-    ZapScan -->|Spawns Container| Docker
-    Docker -->|Runs Baseline Scan| ZAPContainer
-    
-    UIGen --> DB
-    UIRun --> DB
-    SecGen --> DB
-    SecRun --> DB
-    ZapScan --> DB
-    
-    DB <--> Mongo
+```bash
+cd backend && uv run pytest
+cd frontend && npm run lint && npm run build
 ```
 
-## 4) Database Connectivity & Schema
+CI runs the locked backend test suite plus frontend install, lint, and production build.
 
-The following diagram details the collections inside MongoDB and how the backend repositories interact with them.
+## Main API areas
 
-```mermaid
-erDiagram
-    %% Core Relationships
-    PROJECTS ||--o{ TEST_CASES_PROJECT : "1:N (project_id)"
-    PROJECTS ||--o{ SECURITY_TESTS_PROJECT : "1:N (project_id)"
-    TEST_CASES_PROJECT ||--o| EXECUTION_RESULTS : "Embedded"
-    SECURITY_TESTS_PROJECT ||--o| EXECUTION_RESULTS : "Embedded"
-    
-    PROJECTS {
-        ObjectId _id PK
-        string name
-        string description
-        string url
-        datetime created_at
-        datetime updated_at
-    }
-    
-    TEST_CASES_PROJECT {
-        ObjectId _id PK
-        ObjectId project_id FK "References PROJECTS._id"
-        string test_id
-        string name
-        string description
-        array steps
-        datetime created_at
-        datetime updated_at
-    }
-    
-    SECURITY_TESTS_PROJECT {
-        ObjectId _id PK
-        ObjectId project_id FK "References PROJECTS._id"
-        string test_id
-        string title
-        string category
-        string target
-        string test_type
-    }
-    
-    EXECUTION_RESULTS {
-        string status "PASS / FAIL / WARNING"
-        string failure_reason
-        string finding
-        string evidence
-        string recommendation
-        datetime executed_at
-    }
-```
+- `/api/v1/auth` — registration and login.
+- `/api/v1/projects` — owner-scoped projects.
+- `/api/v1/test-cases`, `/api/v1/test-generation`, `/api/v1/test-execution` — browser test management and execution.
+- `/api/v1/security-tests` — security test generation, execution, and ZAP integration.
+- `/api/v1/api-specs` — OpenAPI/Postman import, operation execution, workflows, async jobs, runs, passive security scans, and findings.
+- `/api/v1/llm` — LLM-backed operations.
+
+For the component and data-flow view, see [architecture.md](architecture.md).
