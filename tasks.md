@@ -20,13 +20,13 @@ This is the proposed implementation backlog from the architecture review. Review
 
 - [ ] Replace project-name-specific MongoDB collections with stable collections keyed by `project_id`.
 - [ ] Add indexes and uniqueness constraints for projects and logical test IDs.
-- [ ] Implement `TestRun` and artifact metadata models/repositories.
+- [x] Implement `TestRun` and artifact metadata models/repositories.
 - [ ] Preserve every execution attempt instead of overwriting test status.
 - [ ] Standardize statuses across UI, API, and security tests (`queued`, `running`, `waiting`, `passed`, `failed`, `warning`, `cancelled`).
 - [ ] Persist duration, runner version, generation mode, inputs reference, evidence, and failure details.
 - [ ] Add a background worker/queue for Playwright, API, and ZAP jobs.
 - [ ] Add cancellation, timeouts, retry policy, structured logs, and run correlation IDs.
-- [ ] Define artifact retention, access control, redaction, and cleanup policies.
+- [x] Define artifact retention, access control, redaction, and cleanup policies.
 
 ## P1 — API Testing Module
 
@@ -51,20 +51,20 @@ This is the proposed implementation backlog from the architecture review. Review
 ## P1 — Security Testing Completion
 
 - [x] Implement the missing `authentication_configuration` checker.
-- [ ] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
+- [x] Add API security checks for authentication, authorization/BOLA/BFLA, schema validation, excessive data exposure, rate limits, CORS, and error leakage.
 - [x] Separate passive checks from active probes and require explicit opt-in for active/destructive methods.
 - [x] Add passive API checks for declared authentication, CORS headers, reachability, and error responses.
 - [x] Add passive API checks for rate-limit signals, response schema mismatches, and sensitive response fields.
 - [x] Persist owner-scoped API security findings and expose finding history.
-- [ ] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.
+- [x] Reuse the API operation catalog for security case generation instead of relying only on page DOM context.
 - [ ] Make ZAP scans asynchronous, scoped, deduplicated, and linked to a durable security run.
 - [ ] Pin the ZAP image and document the required Docker permissions and network policy.
 - [ ] Normalize `PASS`/`FAIL`/`WARNING` values and map them consistently to shared run statuses.
-- [ ] Add security finding deduplication, remediation state, severity validation, and historical results.
+- [x] Add security finding deduplication, remediation state, severity validation, and historical results.
 
 ## P1 — UI and Contract Alignment
 
-- [ ] Add frontend API-suite, operation, test-case, run, and finding views.
+- [x] Add frontend API-suite, operation, test-case, run, and finding views.
 - [x] Add initial authenticated API import, operation catalog, and passive-scan UI.
 - [x] Add persisted-spec and API run-history actions to the API workspace UI.
 - [x] Add direct operation execution controls with template-path safeguards.
@@ -91,7 +91,7 @@ This is the proposed implementation backlog from the architecture review. Review
 - [ ] Add Dockerfiles for backend, frontend, and worker plus Compose for local MongoDB/ZAP dependencies.
 - [ ] Add health and readiness endpoints for API, MongoDB, worker, and LLM dependencies.
 - [ ] Add production environment configuration and secret-injection documentation.
-- [ ] Add CI/CD for linting, tests, builds, dependency checks, and image scanning.
+- [x] Add CI/CD for linting, tests, and builds; dependency checks and image scanning remain follow-up work.
 - [ ] Add structured log shipping, metrics, error tracking, and audit events.
 - [ ] Define MongoDB backup, migration/index, artifact retention, and disaster-recovery procedures.
 - [ ] Update README and setup docs so every documented command works from a clean checkout.

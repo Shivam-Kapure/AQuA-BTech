@@ -21,6 +21,7 @@ async def test_passive_scan_reports_auth_and_cors(monkeypatch: pytest.MonkeyPatc
     await client.aclose()
 
     assert {finding["category"] for finding in findings} == {"authentication", "cors", "rate_limit", "excessive_data_exposure"}
+    assert {finding["severity"] for finding in findings} == {"low", "medium", "high"}
 
 
 @pytest.mark.asyncio
@@ -28,3 +29,24 @@ async def test_active_scan_is_rejected() -> None:
     spec = ApiSpec(title="Demo", version="1", openapi_version="3.0.3")
     with pytest.raises(ValueError, match="Active"):
         await scan_api_security(spec, active=True)
+
+
+@pytest.mark.asyncio
+async def test_passive_scan_marks_authorization_and_schema_surfaces() -> None:
+    spec = ApiSpec(
+        title="Demo",
+        version="1",
+        openapi_version="3.0.3",
+        operations=[
+            {"operation_id": "get_order", "method": "GET", "path": "/orders/{order_id}", "auth_schemes": ["bearer"]},
+            {"operation_id": "admin_update", "method": "PATCH", "path": "/admin/users/{id}", "auth_schemes": ["bearer"]},
+        ],
+    )
+
+    findings = await scan_api_security(spec)
+
+    by_operation = {(finding["operation_id"], finding["category"]) for finding in findings}
+    assert ("get_order", "bola_candidate") in by_operation
+    assert ("admin_update", "bfla_candidate") in by_operation
+    assert ("admin_update", "schema_abuse") in by_operation
+    assert all(finding["severity"] in {"low", "medium", "high", "critical"} for finding in findings)

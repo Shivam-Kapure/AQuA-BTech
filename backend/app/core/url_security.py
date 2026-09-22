@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from fastapi import HTTPException, status
 
@@ -46,3 +46,14 @@ def validate_target_url(url: str) -> str:
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Target resolves to a private or reserved address")
     return url
+
+
+def validate_redirect_target(request_url: str, location: str) -> str:
+    """Resolve and validate a redirect before a caller elects to follow it.
+
+    HTTP clients used by AQUA deliberately disable automatic redirects.  This
+    helper keeps that policy explicit when a caller needs a single, audited
+    redirect hop (for example, a hosted OpenAPI document).
+    """
+    target = urljoin(request_url, location)
+    return validate_target_url(target)

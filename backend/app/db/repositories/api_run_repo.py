@@ -19,6 +19,10 @@ class ApiRunRepository:
             raise RuntimeError("MongoDB is not connected")
         return db[self.collection_name]
 
+    async def ensure_indexes(self) -> None:
+        await self.collection.create_index([("owner_id", 1), ("project_name", 1), ("created_at", -1)])
+        await self.collection.create_index([("owner_id", 1), ("correlation_id", 1)], unique=True, sparse=True)
+
     async def create(self, run: ApiRunRecord) -> ApiRunRecord:
         doc: dict[str, Any] = run.model_dump(exclude={"id"})
         doc["created_at"] = datetime.utcnow()
@@ -42,6 +46,24 @@ class ApiRunRepository:
         except Exception:
             return None
         doc = await self.collection.find_one({"_id": object_id, "owner_id": owner_id})
+        if not doc:
+            return None
+        doc["id"] = str(doc.pop("_id"))
+        return ApiRunRecord.model_validate(doc)
+
+    async def update_by_correlation(self, correlation_id: str, *, owner_id: str, fields: dict[str, Any]) -> ApiRunRecord | None:
+        await self.collection.update_one(
+            {"correlation_id": correlation_id, "owner_id": owner_id},
+            {"$set": fields},
+        )
+        doc = await self.collection.find_one({"correlation_id": correlation_id, "owner_id": owner_id})
+        if not doc:
+            return None
+        doc["id"] = str(doc.pop("_id"))
+        return ApiRunRecord.model_validate(doc)
+
+    async def get_by_correlation(self, correlation_id: str, *, owner_id: str) -> ApiRunRecord | None:
+        doc = await self.collection.find_one({"correlation_id": correlation_id, "owner_id": owner_id})
         if not doc:
             return None
         doc["id"] = str(doc.pop("_id"))
