@@ -135,7 +135,7 @@ This checklist turns the requested hands-on validation into a small, testable de
 
 ### 4. Decision-score metric for test cases
 
-- [ ] Add an explainable `decision_score` (0–100) to generated UI, API, and security test cases, with a structured `decision_score_factors` breakdown. UI and security cases are complete; API-generated cases remain.
+- [x] Add an explainable `decision_score` (0–100) to generated UI, API, and security test cases, with a structured `decision_score_factors` breakdown.
 - [ ] Use a documented weighted formula: user/agent priority, risk or severity, target-change/coverage gap, historical failure or flakiness, and execution cost; never derive the score from sensitive request values.
 - [ ] Display the score, confidence band, and top contributing factors in test-case lists and detail views; permit sort/filter by score.
 - [ ] Include decision-score distribution and highest-risk unexecuted cases in the PDF report and add tests for score bounds, determinism, and redaction.

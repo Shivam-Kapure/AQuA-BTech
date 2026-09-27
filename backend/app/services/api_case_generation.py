@@ -4,6 +4,7 @@ import json
 
 from app.core.llm import get_llm_client
 from app.models.api_spec import ApiSpec, ApiTestCase
+from app.services.decision_scoring import score_test_case
 
 
 async def generate_api_test_cases(spec: ApiSpec, *, count: int = 10) -> list[ApiTestCase]:
@@ -34,5 +35,12 @@ async def generate_api_test_cases(spec: ApiSpec, *, count: int = 10) -> list[Api
         path = case.url.split("?", 1)[0]
         if (case.method.upper(), path) not in allowed:
             raise ValueError(f"Generated case does not match an imported operation: {case.method} {path}")
-        cases.append(case)
+        priority = item.get("priority") if isinstance(item.get("priority"), str) else ("high" if case.method.upper() not in {"GET", "HEAD", "OPTIONS"} else "medium")
+        category = item.get("category") if isinstance(item.get("category"), str) else "api"
+        score, factors = score_test_case(
+            priority=priority,
+            category=category,
+            step_count=max(1, len(case.assertions)),
+        )
+        cases.append(case.model_copy(update={"decision_score": score, "decision_score_factors": factors}))
     return cases
