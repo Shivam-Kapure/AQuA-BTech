@@ -430,8 +430,61 @@ export default function ProjectDetailPage() {
         doc.setTextColor(100, 116, 139)
         doc.text('AQUA Agentic QA - Confidential Technical Report', 40, pageHeight - 14)
         doc.text(`Page ${page}`, pageWidth - 40, pageHeight - 14, { align: 'right' })
-      },
-    })
+        },
+      })
+
+      const [securityTests, apiRuns, apiFindings] = await Promise.all([
+        client.get(`/api/v1/security/${encodeURIComponent(projectName)}`).then(({ data }) => data).catch(() => []),
+        client.get('/api/v1/api-specs/runs').then(({ data }) => data).catch(() => []),
+        client.get('/api/v1/api-specs/findings').then(({ data }) => data).catch(() => []),
+      ])
+      const projectApiRuns = apiRuns.filter((run) => !run.project_name || run.project_name === projectName)
+      const projectApiFindings = apiFindings.filter((finding) => !finding.project_name || finding.project_name === projectName)
+      const appendReportTable = (title, head, body) => {
+        if (!body.length) return
+        doc.addPage()
+        doc.setTextColor(30, 41, 59)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(14)
+        doc.text(title, 40, 52)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
+        doc.setTextColor(100, 116, 139)
+        doc.text(`Project: ${projectName} · Generated: ${generatedAt}`, 40, 68)
+        autoTable(doc, {
+          startY: 82,
+          head: [head],
+          body,
+          styles: { fontSize: 8.5, cellPadding: 6, valign: 'top', lineColor: [226, 232, 240], lineWidth: 0.5 },
+          headStyles: { fillColor: [30, 41, 59], textColor: [248, 250, 252], fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 40, right: 40 },
+          didDrawPage: () => {
+            const page = doc.getCurrentPageInfo().pageNumber
+            doc.setDrawColor(226, 232, 240)
+            doc.line(40, pageHeight - 28, pageWidth - 40, pageHeight - 28)
+            doc.setFontSize(8)
+            doc.setTextColor(100, 116, 139)
+            doc.text('AQUA Agentic QA - Confidential Technical Report', 40, pageHeight - 14)
+            doc.text(`Page ${page}`, pageWidth - 40, pageHeight - 14, { align: 'right' })
+          },
+        })
+      }
+      appendReportTable(
+        'API executions',
+        ['Test', 'Status', 'HTTP status', 'Duration'],
+        projectApiRuns.map((run) => [run.test_name || 'Unnamed API test', run.status || (run.result?.passed ? 'passed' : 'failed'), String(run.result?.status_code ?? '—'), run.duration_ms == null ? '—' : `${Math.round(run.duration_ms)}ms`])
+      )
+      appendReportTable(
+        'API security findings',
+        ['Severity', 'Category', 'Status', 'Remediation', 'Finding'],
+        projectApiFindings.map((finding) => [finding.severity || '—', finding.category || '—', finding.status || '—', finding.remediation_status || 'open', finding.finding || '—'])
+      )
+      appendReportTable(
+        'Security test results',
+        ['Test', 'Decision', 'Severity', 'Status', 'Finding', 'Recommendation'],
+        securityTests.map((testCase) => [testCase.title || testCase.test_id, testCase.decision_score == null ? '—' : `${testCase.decision_score}/100`, testCase.severity || '—', testCase.status || 'draft', testCase.finding || '—', testCase.recommendation || '—'])
+      )
 
       doc.save(`${safeProject}_test_report_${stamp}.pdf`)
     } catch (err) {
