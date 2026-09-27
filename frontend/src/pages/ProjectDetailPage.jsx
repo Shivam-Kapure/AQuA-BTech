@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   ArrowLeft,
+  Bot,
   Download,
   Key,
   Loader2,
@@ -84,6 +85,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [generatingSuite, setGeneratingSuite] = useState(false)
+  const [agentDecision, setAgentDecision] = useState(null)
+  const [runningAgent, setRunningAgent] = useState(false)
   const [selected, setSelected] = useState(null)
   const [jwtOpen, setJwtOpen] = useState(false)
   const [needsModal, setNeedsModal] = useState({ open: false, testId: null, inputs: [] })
@@ -138,6 +141,27 @@ export default function ProjectDetailPage() {
       toast.error(err.response?.data?.detail || 'Could not generate the short test suite')
     } finally {
       setGeneratingSuite(false)
+    }
+  }
+
+  const runAgentDecision = async () => {
+    if (!project?.url) {
+      toast.error('This project has no target URL')
+      return
+    }
+    setRunningAgent(true)
+    try {
+      const { data } = await client.post('/api/v1/agent/run-once', {
+        project_name: project.name,
+        url: project.url,
+      })
+      setAgentDecision(data)
+      toast.success('Coverage decision completed')
+      await loadTests()
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Could not run the coverage decision')
+    } finally {
+      setRunningAgent(false)
     }
   }
 
@@ -520,6 +544,15 @@ export default function ProjectDetailPage() {
             {generatingSuite ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
             {generatingSuite ? 'Generating…' : 'Generate short suite'}
           </button>
+          <button
+            type="button"
+            className="btn-secondary inline-flex items-center gap-2"
+            onClick={runAgentDecision}
+            disabled={runningAgent || !project?.url}
+          >
+            {runningAgent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+            {runningAgent ? 'Deciding…' : 'Coverage decision'}
+          </button>
           <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={() => setJwtOpen(true)}>
             <Key className="h-4 w-4" />
             Route JWT
@@ -530,6 +563,8 @@ export default function ProjectDetailPage() {
           </button>
         </div>
       </div>
+
+      {agentDecision ? <section className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-5 dark:border-cyan-900/70 dark:bg-cyan-950/20"><div className="flex items-center gap-2"><Bot className="h-5 w-5 text-cyan-700 dark:text-cyan-300" /><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Coverage decision</h2></div><p className="mt-3 text-sm text-slate-700 dark:text-slate-200"><span className="font-semibold">Action:</span> {agentDecision.agent_decision?.action || '—'}</p><p className="mt-1 text-sm text-slate-700 dark:text-slate-200"><span className="font-semibold">Reason:</span> {agentDecision.agent_decision?.reason || 'No reason returned.'}</p>{agentDecision.effect ? <pre className="mt-3 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(agentDecision.effect, null, 2)}</pre> : null}</section> : null}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#12151c]">
         <div className="overflow-x-auto">
