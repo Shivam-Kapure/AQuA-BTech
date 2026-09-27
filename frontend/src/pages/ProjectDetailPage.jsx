@@ -49,6 +49,11 @@ function getResultLabel(status) {
   return String(status || '').toLowerCase() === 'passed' ? 'Passed' : 'Not Passed'
 }
 
+function formatDecisionScore(testCase) {
+  const score = Number(testCase?.metadata?.decision_score)
+  return Number.isFinite(score) ? `${Math.round(score)}/100` : '—'
+}
+
 function safeStepText(step, i) {
   if (typeof step?.value === 'string') return `${i + 1}. ${step.value}`
   if (typeof step?.action === 'string') return `${i + 1}. ${step.action}`
@@ -314,12 +319,17 @@ export default function ProjectDetailPage() {
 
       const metricTop = 118
       const metricHeight = 42
-      const metricWidth = (pageWidth - 100) / 4
+      const scoredTests = tests.filter((tc) => Number.isFinite(Number(tc.metadata?.decision_score)))
+      const averageDecisionScore = scoredTests.length
+        ? Math.round(scoredTests.reduce((sum, tc) => sum + Number(tc.metadata.decision_score), 0) / scoredTests.length)
+        : null
+      const metricWidth = (pageWidth - 106) / 5
       const metrics = [
         { label: 'Total', value: String(tests.length), color: [37, 99, 235] },
         { label: 'Passed', value: String(passed), color: [22, 163, 74] },
         { label: 'Failed', value: String(failed), color: [220, 38, 38] },
         { label: 'Coverage', value: `${coverage}%`, color: [124, 58, 237] },
+        { label: 'Avg. decision', value: averageDecisionScore == null ? '—' : `${averageDecisionScore}/100`, color: [8, 145, 178] },
       ]
       metrics.forEach((m, i) => {
         const x = 40 + i * (metricWidth + 6)
@@ -357,6 +367,7 @@ export default function ProjectDetailPage() {
         return [
           String(testCaseId),
           String(tc.name || 'Untitled'),
+          formatDecisionScore(tc),
           getResultLabel(status),
           failureReason,
           steps || 'No steps',
@@ -365,7 +376,7 @@ export default function ProjectDetailPage() {
 
       autoTable(doc, {
       startY: 188,
-      head: [['Test Case ID', 'Test Name', 'Result', 'Failure Reason', 'Steps']],
+        head: [['Test Case ID', 'Test Name', 'Decision', 'Result', 'Failure Reason', 'Steps']],
       body: rows,
       styles: {
         fontSize: 8.5,
@@ -383,14 +394,15 @@ export default function ProjectDetailPage() {
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { cellWidth: 70, fontStyle: 'bold' },
-        1: { cellWidth: 96 },
-        2: { cellWidth: 60 },
-        3: { cellWidth: 110 },
-        4: { cellWidth: 'auto' },
+          1: { cellWidth: 82 },
+          2: { cellWidth: 52 },
+          3: { cellWidth: 54 },
+          4: { cellWidth: 100 },
+          5: { cellWidth: 'auto' },
       },
       margin: { left: 40, right: 40 },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 2) {
+          if (data.section === 'body' && data.column.index === 3) {
           const v = String(data.cell.raw || '')
           if (v === 'Passed') {
             data.cell.styles.textColor = [22, 163, 74]
@@ -400,7 +412,7 @@ export default function ProjectDetailPage() {
             data.cell.styles.fontStyle = 'bold'
           }
         }
-        if (data.section === 'body' && data.column.index === 3) {
+          if (data.section === 'body' && data.column.index === 4) {
           const v = String(data.cell.raw || '')
           if (v !== '—') {
             data.cell.styles.textColor = [185, 28, 28]
@@ -475,6 +487,7 @@ export default function ProjectDetailPage() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Priority</th>
+                <th className="px-4 py-3">Decision</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Duration</th>
                 <th className="px-4 py-3 text-right">Action</th>
@@ -483,13 +496,13 @@ export default function ProjectDetailPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-500">
                     Loading test cases…
                   </td>
                 </tr>
               ) : tests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-500">
                     No test cases yet. Generate a short suite to get started.
                   </td>
                 </tr>
@@ -521,6 +534,9 @@ export default function ProjectDetailPage() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={priorityVariant(pri)}>{pri}</Badge>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
+                        {formatDecisionScore(tc)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="space-y-1">
