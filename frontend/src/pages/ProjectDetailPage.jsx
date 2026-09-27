@@ -76,7 +76,9 @@ export default function ProjectDetailPage() {
   const projectName = useMemo(() => decodeURIComponent(rawName || ''), [rawName])
 
   const [tests, setTests] = useState([])
+  const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [generatingSuite, setGeneratingSuite] = useState(false)
   const [selected, setSelected] = useState(null)
   const [jwtOpen, setJwtOpen] = useState(false)
   const [needsModal, setNeedsModal] = useState({ open: false, testId: null, inputs: [] })
@@ -97,9 +99,42 @@ export default function ProjectDetailPage() {
     }
   }, [projectName])
 
+  const loadProject = useCallback(async () => {
+    if (!projectName) return
+    try {
+      const { data } = await client.get('/api/v1/projects/')
+      setProject(data.find((item) => item.name === projectName) || null)
+    } catch {
+      setProject(null)
+    }
+  }, [projectName])
+
   useEffect(() => {
     loadTests()
-  }, [loadTests])
+    loadProject()
+  }, [loadProject, loadTests])
+
+  const generateShortSuite = async () => {
+    if (!project?.url) {
+      toast.error('This project has no target URL')
+      return
+    }
+    setGeneratingSuite(true)
+    try {
+      await client.post('/api/v1/generate/', {
+        url: project.url,
+        project_name: project.name,
+        generation_profile: 'quick',
+        user_prompt: project.description || undefined,
+      })
+      toast.success('Short test suite generated')
+      await loadTests()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Could not generate the short test suite')
+    } finally {
+      setGeneratingSuite(false)
+    }
+  }
 
   const runTest = async (tc, e) => {
     e?.stopPropagation()
@@ -411,6 +446,15 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-secondary inline-flex items-center gap-2"
+            onClick={generateShortSuite}
+            disabled={generatingSuite || !project?.url}
+          >
+            {generatingSuite ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+            {generatingSuite ? 'Generating…' : 'Generate short suite'}
+          </button>
           <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={() => setJwtOpen(true)}>
             <Key className="h-4 w-4" />
             Route JWT
@@ -446,7 +490,7 @@ export default function ProjectDetailPage() {
               ) : tests.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
-                    No test cases yet. Generate from the projects list.
+                    No test cases yet. Generate a short suite to get started.
                   </td>
                 </tr>
               ) : (

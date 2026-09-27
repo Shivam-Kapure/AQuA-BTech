@@ -20,7 +20,7 @@ SYSTEM_PROMPT = """You are an agentic Playwright test generator. You output only
 Requirements for the script:
 - Use ONLY the synchronous API: from playwright.sync_api import sync_playwright, expect (we use sync for subprocess execution).
 - The script must: launch browser (chromium, headless=True), create a page, goto the given URL, then perform each step in order.
-- Map natural language steps to Playwright calls, e.g. "Click on the login button" -> page.click("button:has-text('Login')") or page.click("#login"); "Enter username" -> page.fill("input[name=username]", "testuser"); "Open the target URL" -> already done with goto.
+- Map natural-language steps to Playwright calls using the supplied page context. Use the exact accessible role, label, or visible name from that context; never invent or normalize a control name (for example, do not substitute "Login" for a control named "Sign in"). "Open the target URL" is already handled by goto.
 - After performing all steps, assert the expected result (e.g. check that the page contains the expected text or element). Use expect from playwright.sync_api or assert with page content.
 - Use sync_playwright() and run everything inside a with block. At the end, close the browser.
 - If the script fails (exception or assertion), exit with non-zero (sys.exit(1)); if all steps and assertions pass, exit 0 (sys.exit(0)).
@@ -71,6 +71,8 @@ def build_user_prompt(
     context_block = f"""
 Here are some relevant UI elements from the page that might help you write accurate selectors for the steps above:
 {rag_context}
+
+Selector rule: use only an exact accessible role, label, or visible name from this context. Do not substitute synonyms or guess selectors. If a requested control cannot be matched to the context, emit the waiting protocol instead of a selector that will time out.
 """ if rag_context else ""
 
     return f"""Generate a single Playwright (sync_api) Python script for this test case.
