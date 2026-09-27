@@ -51,6 +51,20 @@ async def generate_test_cases_for_url(
     Use the configured LLM to generate test cases for a URL
     and persist them to MongoDB. Scrapes the page first to provide context.
     """
+    if not project_name:
+        raise ValueError("project_name is required to generate test cases.")
+
+    project_repo = ProjectRepository()
+    project = await project_repo.get_or_create_by_name(
+        project_name, url=url, owner_id=owner_id
+    )
+    project_id = project.id
+    repo = TestCaseRepository(project_name=project.name)
+    existing = await repo.list(project_id=project_id)
+    if existing:
+        logger.info(f"Reusing {len(existing)} existing test cases for project {project.name}")
+        return existing
+
     # 1. Scrape the DOM and build context
     html = await fetch_page_html(url)
     elements = extract_interactive_elements(html)
@@ -64,15 +78,6 @@ async def generate_test_cases_for_url(
     logger.info(f"Generated DOM context length: {len(dom_context)} characters for {url}")
 
     client = get_llm_client()
-
-    if not project_name:
-        raise ValueError("project_name is required to generate test cases.")
-
-    project_repo = ProjectRepository()
-    project = await project_repo.get_or_create_by_name(
-        project_name, url=url, owner_id=owner_id
-    )
-    project_id = project.id
 
     prompt = PROMPT_TEMPLATE.format(url=url, dom_context=dom_context)
     messages = [
@@ -153,6 +158,5 @@ async def generate_test_cases_for_url(
         )
         test_case_creates.append(tc)
 
-    repo = TestCaseRepository(project_name=project.name)
     created = await repo.create_many(test_case_creates, project_id=project_id)
     return created

@@ -104,3 +104,50 @@ This is the proposed implementation backlog from the architecture review. Review
 - [ ] Choose the worker technology and whether Docker isolation is mandatory.
 - [ ] Approve the shared test/run schema and status vocabulary.
 - [ ] Define minimum acceptance criteria and coverage targets for the first milestone.
+
+## Current Validation and Delivery Sprint
+
+This checklist turns the requested hands-on validation into a small, testable delivery plan. Keep each item unchecked until its acceptance criteria are demonstrated in the local app and captured in the run history.
+
+### 1. End-to-end project and functional-test validation
+
+- [x] Create a disposable project against an approved test target; confirm it appears in the project workspace after a refresh. (Validated locally on 2026-09-28 with `http://127.0.0.1:3001`; this requires the explicit development-only `ALLOW_PRIVATE_TARGETS=true` setting.)
+- [x] Generate a **short** functional-test suite and confirm every generated case is scoped to the selected project. (Validated locally on 2026-09-28: five cases generated for the project.)
+- [x] Run at least one generated case, record its final status, duration, failure reason (if any), and any evidence/artifacts. (TC003, “Login with Empty Fields,” passed in 18,888 ms after selector remediation.)
+- [x] For each failed functional case, triage it as product defect, flaky test/selector, environment dependency, or generation defect; add a reproducible remediation note before rerunning. (Initial TC003 failure was a generator selector mismatch: `Login` versus the target's exact `Sign in` name; tightened selector guidance and rerun passed.)
+- [ ] Run the project’s agent/RL decision step and record the decision, rationale, recommended next action, and any request for credentials or route JWT.
+
+### 2. API testing validation
+
+- [ ] Import a valid, owner-scoped OpenAPI document and verify the parsed operation catalog, parameters, schemas, and declared authentication are shown.
+- [ ] Execute one safe read-only operation with status, content type, JSON/body, and response-time assertions; verify sensitive headers and fields are redacted in stored evidence.
+- [ ] Create and run a two-step API workflow that extracts a safe value from step one and injects it into step two; verify workflow failure identifies the failed step.
+- [ ] Run the passive API-security scan; review and persist findings for authentication, authorization, schema, CORS, rate limiting, error leakage, and sensitive-data exposure.
+- [ ] Add a frontend API-test smoke suite that covers import, operation execution, run history, remediation-state change, and job cancellation/timeout display.
+
+### 3. Security-testing content and UX
+
+- [ ] Add a dedicated Security testing workspace for project-level generation, safe execution, historical runs, findings, severity, remediation state, and evidence links.
+- [ ] Make the security-generation content explicit and defensive: show target, category, method/parameter, expected secure behavior, severity, test type, safe execution boundary, and remediation guidance.
+- [ ] Clearly label passive checks versus active/destructive probes; active probes must stay opt-in, target-scoped, and blocked unless the user has explicit authorization.
+- [ ] Add UI acceptance tests for empty, loading, unauthorized, failed, warning, cancelled, and passed security-run states.
+- [ ] Complete asynchronous, deduplicated ZAP baseline-scan handling with a pinned image, durable run record, timeout/cancellation, Docker/network prerequisites, and documented scope.
+
+### 4. Decision-score metric for test cases
+
+- [ ] Add an explainable `decision_score` (0–100) to generated UI, API, and security test cases, with a structured `decision_score_factors` breakdown.
+- [ ] Use a documented weighted formula: user/agent priority, risk or severity, target-change/coverage gap, historical failure or flakiness, and execution cost; never derive the score from sensitive request values.
+- [ ] Display the score, confidence band, and top contributing factors in test-case lists and detail views; permit sort/filter by score.
+- [ ] Include decision-score distribution and highest-risk unexecuted cases in the PDF report and add tests for score bounds, determinism, and redaction.
+
+### 5. PDF report completion
+
+- [ ] Extend the existing client-side PDF report with API executions, security findings, remediation status, decision scores, agent/RL decisions, evidence links/identifiers, and an explicit report scope/date range.
+- [ ] Decide whether reports are compliance artifacts; if yes, replace client-only generation with a versioned server-side report contract, durable source snapshot, access control, and audit event.
+- [ ] Add a browser-level PDF export smoke test that verifies download, title, project identity, summary metrics, test table, failure reasons, and graceful empty-state behavior.
+
+### 6. Release gate and monitoring
+
+- [ ] Run and retain the release checks: backend unit/integration tests, frontend lint/build, and the end-to-end smoke suite.
+- [ ] Record deprecation warnings separately from test failures and schedule their cleanup (timezone-aware datetimes, Pydantic `ConfigDict`, and current FastAPI status constants).
+- [ ] Add run correlation IDs and structured failure telemetry so new failed executions can be grouped, diagnosed, rerun, and closed with a remediation note.
