@@ -1,0 +1,16 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Circle Social API", "version": "1.0.0", "description": "A self-contained social-media demo API." },
+  "servers": [{ "url": "http://127.0.0.1:3001" }],
+  "paths": {
+    "/api/health": { "get": { "operationId": "health", "responses": { "200": { "description": "Healthy" } } } },
+    "/api/auth/register": { "post": { "operationId": "register", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Register" } } } }, "responses": { "201": { "description": "User and token" } } } },
+    "/api/auth/login": { "post": { "operationId": "login", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Login" } } } }, "responses": { "200": { "description": "User and token" }, "401": { "description": "Invalid credentials" } } } },
+    "/api/auth/me": { "get": { "operationId": "me", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Current user" } } } },
+    "/api/posts": { "get": { "operationId": "listPosts", "parameters": [{ "name": "q", "in": "query", "schema": { "type": "string", "example": "community" } }], "responses": { "200": { "description": "Feed" } } }, "post": { "operationId": "createPost", "security": [{ "bearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Content" } } } }, "responses": { "201": { "description": "New post" } } } },
+    "/api/posts/{id}/like": { "post": { "operationId": "toggleLike", "security": [{ "bearerAuth": [] }], "parameters": [{ "$ref": "#/components/parameters/PostId" }], "responses": { "200": { "description": "Like state" } } } },
+    "/api/posts/{id}/comments": { "post": { "operationId": "createComment", "security": [{ "bearerAuth": [] }], "parameters": [{ "$ref": "#/components/parameters/PostId" }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Content" } } } }, "responses": { "201": { "description": "New comment" } } } },
+    "/api/search": { "get": { "operationId": "searchUsers", "parameters": [{ "name": "q", "in": "query", "schema": { "type": "string" } }], "responses": { "200": { "description": "Search result" } } } }
+  },
+  "components": { "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }, "parameters": { "PostId": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } }, "schemas": { "Login": { "type": "object", "properties": { "username": { "type": "string", "example": "alex" }, "password": { "type": "string", "example": "choose-a-password" } }, "required": ["username", "password"] }, "Register": { "allOf": [{ "$ref": "#/components/schemas/Login" }], "properties": { "name": { "type": "string" }, "bio": { "type": "string" } } }, "Content": { "type": "object", "properties": { "content": { "type": "string", "example": "Looking forward to meeting everyone." } }, "required": ["content"] } } }
+}
