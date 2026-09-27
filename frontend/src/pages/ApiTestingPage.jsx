@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Save, ShieldCheck } from 'lucide-react'
 import client from '../api/client'
@@ -30,6 +30,8 @@ export default function ApiTestingPage() {
   const [document, setDocument] = useState(example)
   const [sourceUrl, setSourceUrl] = useState('')
   const [loadedSourceUrl, setLoadedSourceUrl] = useState('')
+  const [projects, setProjects] = useState([])
+  const [projectName, setProjectName] = useState('')
   const [spec, setSpec] = useState(null)
   const [savedSpecs, setSavedSpecs] = useState([])
   const [selectedOperation, setSelectedOperation] = useState(null)
@@ -45,17 +47,26 @@ export default function ApiTestingPage() {
   const [loading, setLoading] = useState(false)
   const selected = useMemo(() => spec?.operations?.find((item) => item.operation_id === selectedOperation), [spec, selectedOperation])
 
-  useEffect(() => { loadSavedSpecs(); loadRuns(); loadFindings() }, [])
+  useEffect(() => {
+    client.get('/api/v1/projects/')
+      .then(({ data }) => {
+        setProjects(data)
+        setProjectName((current) => current || data[0]?.name || '')
+      })
+      .catch(() => toast.error('Could not load projects'))
+  }, [])
 
-  async function loadSavedSpecs() {
-    try { setSavedSpecs((await client.get('/api/v1/api-specs/')).data) } catch { /* optional on first use */ }
-  }
-  async function loadRuns() {
-    try { setRuns((await client.get('/api/v1/api-specs/runs')).data) } catch { /* shown as empty */ }
-  }
-  async function loadFindings() {
-    try { setSavedFindings((await client.get('/api/v1/api-specs/findings')).data) } catch { /* shown as empty */ }
-  }
+  const loadSavedSpecs = useCallback(async () => {
+    try { setSavedSpecs((await client.get('/api/v1/api-specs/', { params: projectName ? { project_name: projectName } : {} })).data) } catch { /* optional on first use */ }
+  }, [projectName])
+  const loadRuns = useCallback(async () => {
+    try { setRuns((await client.get('/api/v1/api-specs/runs', { params: projectName ? { project_name: projectName } : {} })).data) } catch { /* shown as empty */ }
+  }, [projectName])
+  const loadFindings = useCallback(async () => {
+    try { setSavedFindings((await client.get('/api/v1/api-specs/findings', { params: projectName ? { project_name: projectName } : {} })).data) } catch { /* shown as empty */ }
+  }, [projectName])
+
+  useEffect(() => { loadSavedSpecs(); loadRuns(); loadFindings() }, [loadFindings, loadRuns, loadSavedSpecs])
 
   async function parse(sourceUrlToLoad = '') {
     setLoading(true)
@@ -76,7 +87,7 @@ export default function ApiTestingPage() {
   async function saveSpec() {
     if (!spec) return
     setLoading(true)
-    try { await client.post('/api/v1/api-specs/import', loadedSourceUrl ? { source_url: loadedSourceUrl, project_name: spec.title } : { document, project_name: spec.title }); await loadSavedSpecs(); toast.success('API specification saved') }
+    try { await client.post('/api/v1/api-specs/import', loadedSourceUrl ? { source_url: loadedSourceUrl, project_name: projectName || spec.title } : { document, project_name: projectName || spec.title }); await loadSavedSpecs(); toast.success('API specification saved') }
     catch (error) { toast.error(error.response?.data?.detail || 'Could not save API specification') } finally { setLoading(false) }
   }
 
@@ -97,7 +108,7 @@ export default function ApiTestingPage() {
     try {
       const body = request.body ? JSON.parse(request.body) : null
       const { data } = await client.post('/api/v1/api-specs/execute-async', {
-        name: selected.operation_id, project_name: spec.title, method: selected.method,
+        name: selected.operation_id, project_name: projectName || spec.title, method: selected.method,
         url: operationUrl(spec, selected, request.pathValues), headers: request.headers,
         query: request.query, body, auth_context: request.authContext, assertions: request.assertions,
       })
@@ -140,7 +151,7 @@ export default function ApiTestingPage() {
     if (!spec) return
     setLoading(true)
     try {
-      const { data } = await client.post('/api/v1/api-specs/security-scan-async', { spec, project_name: spec.title, active: false })
+      const { data } = await client.post('/api/v1/api-specs/security-scan-async', { spec, project_name: projectName || spec.title, active: false })
       setActiveJob({ id: data.job_id, status: 'queued' })
       await pollJob(data.job_id, 120, 'Passive security scan completed')
     }
@@ -165,12 +176,12 @@ export default function ApiTestingPage() {
     if (!selected || !request) return
     let body = null
     try { body = request.body ? JSON.parse(request.body) : null } catch { toast.error('Enter valid JSON before adding the workflow step'); return }
-    setWorkflow((items) => [...items, { name: selected.operation_id, test_case: { name: selected.operation_id, project_name: spec.title, method: selected.method, url: operationUrl(spec, selected, request.pathValues), headers: request.headers, query: request.query, body, auth_context: request.authContext, assertions: request.assertions }, extract: {} }])
+    setWorkflow((items) => [...items, { name: selected.operation_id, test_case: { name: selected.operation_id, project_name: projectName || spec.title, method: selected.method, url: operationUrl(spec, selected, request.pathValues), headers: request.headers, query: request.query, body, auth_context: request.authContext, assertions: request.assertions }, extract: {} }])
   }
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div><h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">API testing</h1><p className="mt-1 text-slate-500 dark:text-slate-400">Import, configure, execute, and review API workflows.</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">API testing</h1><p className="mt-1 text-slate-500 dark:text-slate-400">Import, configure, execute, and review API workflows.</p></div><label className="block min-w-56 text-sm font-medium text-slate-700 dark:text-slate-200">Project<select className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900" value={projectName} onChange={(event) => setProjectName(event.target.value)}>{projects.length ? projects.map((project) => <option key={project.id || project._id || project.name} value={project.name}>{project.name}</option>) : <option value="">No projects available</option>}</select></label></div>
       <section className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className="glass-card p-5">
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="openapi-source-url">OpenAPI document URL</label>
@@ -188,7 +199,7 @@ export default function ApiTestingPage() {
         {workflow.length ? <section className="glass-card p-5"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-semibold">Workflow builder</h2><button type="button" onClick={runWorkflow} disabled={loading} className="btn-primary">Run workflow</button></div><div className="mt-3 space-y-2">{workflow.map((step, index) => <div key={`${step.name}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex items-center justify-between"><span>{index + 1}. {step.name}</span><button type="button" className="text-xs text-rose-600" onClick={() => setWorkflow((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div><div className="mt-2 grid gap-2 sm:grid-cols-2"><input className={inputClass} placeholder="Variable name, e.g. access_token" value={Object.keys(step.extract)[0] || ''} onChange={(event) => setWorkflow((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, extract: event.target.value ? { [event.target.value]: Object.values(item.extract)[0] || '$.token' } : {} } : item))} /><input className={inputClass} placeholder="JSONPath, e.g. $.token" value={Object.values(step.extract)[0] || ''} onChange={(event) => setWorkflow((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, extract: Object.keys(item.extract)[0] ? { [Object.keys(item.extract)[0]]: event.target.value } : {} } : item))} /></div></div>)}</div></section> : null}
         {generatedCases.length ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold">Generated API cases</h2><div className="mt-3 space-y-2">{generatedCases.map((testCase, index) => <div key={`${testCase.name}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{testCase.name}</span><span className="rounded-full bg-cyan-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-800 dark:text-cyan-200">Decision {testCase.decision_score}/100</span></div><p className="mt-1 font-mono text-xs text-slate-500">{testCase.method} {testCase.url} · {testCase.assertions.length} assertion{testCase.assertions.length === 1 ? '' : 's'}</p></div>)}</div></section> : null}
       {selectedRun ? <section className="glass-card p-5"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-semibold">Run detail</h2><button type="button" className="text-sm text-slate-500" onClick={() => setSelectedRun(null)}>Close</button></div><pre className="mt-3 max-h-80 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(selectedRun, null, 2)}</pre></section> : null}
-      <section className="grid gap-5 lg:grid-cols-2"><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">API run history</h2><div className="mt-3 space-y-2">{runs.length ? runs.map((run) => <button type="button" key={run.id} onClick={() => setSelectedRun(run)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-3 text-left text-sm dark:border-slate-700"><span className="font-medium">{run.test_name}</span><span className={run.result?.passed ? 'text-emerald-600' : 'text-rose-600'}>{run.result?.passed ? 'passed' : 'failed'} · {run.result?.status_code ?? 'n/a'}</span></button>) : <p className="text-sm text-slate-500">No API runs yet.</p>}</div></div><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">Findings and remediation</h2><div className="mt-3 space-y-2">{[...findings, ...savedFindings].length ? [...findings, ...savedFindings].map((finding, index) => <div key={`${finding.id || finding.category}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{finding.category}</span>{finding.id ? <select className="rounded border border-slate-200 bg-transparent px-2 py-1 text-xs dark:border-slate-700" value={finding.remediation_status || 'open'} onChange={(event) => updateFinding(finding, event.target.value)}><option value="open">Open</option><option value="accepted">Accepted</option><option value="fixed">Fixed</option></select> : <span className="text-amber-600">new</span>}</div><p className="mt-1 text-slate-600 dark:text-slate-300">{finding.finding}</p></div>) : <p className="text-sm text-slate-500">Run a passive scan to create findings.</p>}</div></div></section>
+      <section className="grid gap-5 lg:grid-cols-2"><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">API run history</h2><div className="mt-3 space-y-2">{runs.length ? runs.map((run) => { const state = String(run.status || (run.result?.passed ? 'passed' : 'failed')).toLowerCase(); const complete = state === 'passed' || state === 'failed' || state === 'cancelled' || state === 'warning'; return <button type="button" key={run.id} onClick={() => setSelectedRun(run)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-3 text-left text-sm dark:border-slate-700"><span className="font-medium">{run.test_name}</span><span className={state === 'passed' ? 'text-emerald-600' : complete ? 'text-rose-600' : 'text-amber-600'}>{state} · {complete ? (run.result?.status_code ?? 'n/a') : 'in progress'}</span></button> }) : <p className="text-sm text-slate-500">No API runs yet.</p>}</div></div><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">Findings and remediation</h2><div className="mt-3 space-y-2">{[...findings, ...savedFindings].length ? [...findings, ...savedFindings].map((finding, index) => <div key={`${finding.id || finding.category}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{finding.category}</span>{finding.id ? <select className="rounded border border-slate-200 bg-transparent px-2 py-1 text-xs dark:border-slate-700" value={finding.remediation_status || 'open'} onChange={(event) => updateFinding(finding, event.target.value)}><option value="open">Open</option><option value="accepted">Accepted</option><option value="fixed">Fixed</option></select> : <span className="text-amber-600">new</span>}</div><p className="mt-1 text-slate-600 dark:text-slate-300">{finding.finding}</p></div>) : <p className="text-sm text-slate-500">Run a passive scan to create findings.</p>}</div></div></section>
     </div>
   )
 }

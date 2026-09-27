@@ -30,6 +30,17 @@ def test_parse_openapi_document_normalizes_operations() -> None:
     assert spec.operations[0].parameters[0]["in"] == "path"
 
 
+def test_parse_openapi_document_resolves_local_parameter_references() -> None:
+    spec = parse_openapi_document({
+        "openapi": "3.0.3",
+        "info": {"title": "Pet API", "version": "1.0.0"},
+        "components": {"parameters": {"PetId": {"name": "petId", "in": "path", "required": True}}},
+        "paths": {"/pets/{petId}": {"get": {"parameters": [{"$ref": "#/components/parameters/PetId"}], "responses": {"200": {"description": "OK"}}}}},
+    })
+
+    assert spec.operations[0].parameters == [{"name": "petId", "in": "path", "required": True}]
+
+
 def test_parse_openapi_document_rejects_unsupported_version() -> None:
     with pytest.raises(ValueError, match="Only OpenAPI 3.x"):
         parse_openapi_document({"swagger": "2.0", "info": {"title": "Old", "version": "1"}})
