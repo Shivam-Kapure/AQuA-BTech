@@ -62,13 +62,37 @@ class ApiFindingRemediationRequest(BaseModel):
     remediation_note: str | None = None
 
 
+async def _load_spec_source(source_url: str) -> tuple[str, str]:
+    """Fetch a user supplied OpenAPI URL with the same SSRF controls as other targets."""
+    source_url = validate_target_url(source_url)
+    try:
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, follow_redirects=False, timeout=20.0) as client:
+            response = await client.get(source_url)
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    raise HTTPException(status_code=502, detail="OpenAPI import redirect did not provide a Location header")
+                response = await client.get(validate_redirect_target(source_url, location))
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not fetch OpenAPI document: {exc}") from exc
+    if len(response.content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="OpenAPI document exceeds the 2 MiB limit")
+    return response.text, str(response.url)
+
+
 @router.post("/parse", response_model=ApiSpec)
 async def parse_api_spec(
     payload: ApiSpecImportRequest,
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> ApiSpec:
     try:
-        return parse_openapi_document(payload.document)
+        document = payload.document
+        if document is None and payload.source_url:
+            document, _ = await _load_spec_source(payload.source_url)
+        if document is None:
+            raise ValueError("Provide an OpenAPI document or source_url")
+        return parse_openapi_document(document)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
@@ -202,20 +226,7 @@ async def import_api_spec(
     document = payload.document
     source = "inline"
     if document is None and payload.source_url:
-        source_url = validate_target_url(payload.source_url)
-        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_TLS, follow_redirects=False, timeout=20.0) as client:
-            response = await client.get(source_url)
-            if response.is_redirect:
-                location = response.headers.get("location")
-                if not location:
-                    raise HTTPException(status_code=502, detail="OpenAPI import redirect did not provide a Location header")
-                redirected_url = validate_redirect_target(source_url, location)
-                response = await client.get(redirected_url)
-        if len(response.content) > 2 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="OpenAPI document exceeds the 2 MiB limit")
-        response.raise_for_status()
-        document = response.text
-        source = str(response.url)
+        document, source = await _load_spec_source(payload.source_url)
     if document is None:
         raise HTTPException(status_code=422, detail="Provide document or source_url")
     try:

@@ -28,6 +28,8 @@ function initialRequest(spec, operation) {
 
 export default function ApiTestingPage() {
   const [document, setDocument] = useState(example)
+  const [sourceUrl, setSourceUrl] = useState('')
+  const [loadedSourceUrl, setLoadedSourceUrl] = useState('')
   const [spec, setSpec] = useState(null)
   const [savedSpecs, setSavedSpecs] = useState([])
   const [selectedOperation, setSelectedOperation] = useState(null)
@@ -55,12 +57,14 @@ export default function ApiTestingPage() {
     try { setSavedFindings((await client.get('/api/v1/api-specs/findings')).data) } catch { /* shown as empty */ }
   }
 
-  async function parse() {
+  async function parse(sourceUrlToLoad = '') {
     setLoading(true)
     try {
-      const { data } = await client.post('/api/v1/api-specs/parse', { document })
+      const source = sourceUrlToLoad.trim()
+      const { data } = await client.post('/api/v1/api-specs/parse', source ? { source_url: source } : { document })
       setSpec(data); setSelectedOperation(data.operations[0]?.operation_id || null)
       setRequest(data.operations[0] ? initialRequest(data, data.operations[0]) : null)
+      setLoadedSourceUrl(source)
       setFindings([]); toast.success(`Imported ${data.operations.length} operations`)
     } catch (error) { toast.error(error.response?.data?.detail || 'Could not parse OpenAPI document') } finally { setLoading(false) }
   }
@@ -72,7 +76,7 @@ export default function ApiTestingPage() {
   async function saveSpec() {
     if (!spec) return
     setLoading(true)
-    try { await client.post('/api/v1/api-specs/import', { document, project_name: spec.title }); await loadSavedSpecs(); toast.success('API specification saved') }
+    try { await client.post('/api/v1/api-specs/import', loadedSourceUrl ? { source_url: loadedSourceUrl, project_name: spec.title } : { document, project_name: spec.title }); await loadSavedSpecs(); toast.success('API specification saved') }
     catch (error) { toast.error(error.response?.data?.detail || 'Could not save API specification') } finally { setLoading(false) }
   }
 
@@ -169,11 +173,14 @@ export default function ApiTestingPage() {
       <div><h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">API testing</h1><p className="mt-1 text-slate-500 dark:text-slate-400">Import, configure, execute, and review API workflows.</p></div>
       <section className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className="glass-card p-5">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="openapi-source-url">OpenAPI document URL</label>
+          <div className="mt-2 flex gap-2"><input id="openapi-source-url" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://api.example.com/openapi.json" className={`${inputClass} mt-0 min-w-0`} /><button type="button" onClick={() => parse(sourceUrl)} disabled={loading || !!activeJob || !sourceUrl.trim()} className="btn-secondary shrink-0">Load URL</button></div>
+          <p className="mt-1 text-xs text-slate-500">The service reads an OpenAPI 3 document from this URL. A website address alone does not provide an API catalog.</p>
           <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="openapi-document">OpenAPI JSON</label>
           <textarea id="openapi-document" value={document} onChange={(event) => setDocument(event.target.value)} className="mt-3 min-h-72 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-900" />
-            <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={parse} disabled={loading || !!activeJob} className="btn-primary">{loading ? 'Working…' : 'Parse document'}</button><button type="button" onClick={saveSpec} disabled={!spec || loading || !!activeJob} className="btn-secondary"><Save className="mr-1 h-4 w-4" />Save</button><button type="button" onClick={generateCases} disabled={!spec || loading || !!activeJob} className="btn-secondary">Generate cases</button><button type="button" onClick={scan} disabled={!spec || loading || !!activeJob} className="btn-secondary"><ShieldCheck className="mr-1 h-4 w-4" />Passive scan</button>{activeJob ? <button type="button" onClick={cancelActiveJob} className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700">Cancel job</button> : null}</div>
+            <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => parse()} disabled={loading || !!activeJob} className="btn-primary">{loading ? 'Working…' : 'Parse pasted document'}</button><button type="button" onClick={saveSpec} disabled={!spec || loading || !!activeJob} className="btn-secondary"><Save className="mr-1 h-4 w-4" />Save</button><button type="button" onClick={generateCases} disabled={!spec || loading || !!activeJob} className="btn-secondary">Generate cases</button><button type="button" onClick={scan} disabled={!spec || loading || !!activeJob} className="btn-secondary"><ShieldCheck className="mr-1 h-4 w-4" />Passive scan</button>{activeJob ? <button type="button" onClick={cancelActiveJob} className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700">Cancel job</button> : null}</div>
           {activeJob ? <p className="mt-2 text-xs text-slate-500">{activeJob.label || 'Job'} status: <span className="font-semibold">{activeJob.status}</span> · attempts {activeJob.attempts || 0}</p> : null}
-          {savedSpecs.length ? <div className="mt-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved specifications</p><div className="mt-2 space-y-1">{savedSpecs.slice(0, 5).map((item) => <button key={item.id} type="button" className="block w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setSpec(item); setDocument(JSON.stringify(item, null, 2)); setSelectedOperation(item.operations[0]?.operation_id || null); setRequest(item.operations[0] ? initialRequest(item, item.operations[0]) : null) }}>{item.title} v{item.version}</button>)}</div></div> : null}
+          {savedSpecs.length ? <div className="mt-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved specifications</p><div className="mt-2 space-y-1">{savedSpecs.slice(0, 5).map((item) => <button key={item.id} type="button" className="block w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setSpec(item); setDocument(JSON.stringify(item, null, 2)); setLoadedSourceUrl(item.source === 'inline' ? '' : item.source); setSourceUrl(item.source === 'inline' ? '' : item.source); setSelectedOperation(item.operations[0]?.operation_id || null); setRequest(item.operations[0] ? initialRequest(item, item.operations[0]) : null) }}>{item.title} v{item.version}</button>)}</div></div> : null}
         </div>
         <div className="glass-card p-5"><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Operations</h2>{!spec ? <p className="mt-5 text-sm text-slate-500">Parse a document to see operations.</p> : <div className="mt-4 space-y-2">{spec.operations.map((operation) => <button type="button" key={operation.operation_id} onClick={() => chooseOperation(operation)} className={`w-full rounded-xl border p-3 text-left ${selectedOperation === operation.operation_id ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/20' : 'border-slate-200 dark:border-slate-700'}`}><div className="flex items-center gap-2"><span className="rounded bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-700">{operation.method}</span><span className="font-mono text-sm dark:text-slate-200">{operation.path}</span></div><p className="mt-2 text-xs text-slate-500">{operation.operation_id} · {operation.auth_schemes.length ? operation.auth_schemes.join(', ') : 'authentication not declared'}</p></button>)}</div>}</div>
       </section>
