@@ -127,15 +127,15 @@ This checklist turns the requested hands-on validation into a small, testable de
 
 ### 3. Security-testing content and UX
 
-- [ ] Add a dedicated Security testing workspace for project-level generation, safe execution, historical runs, findings, severity, remediation state, and evidence links.
-- [ ] Make the security-generation content explicit and defensive: show target, category, method/parameter, expected secure behavior, severity, test type, safe execution boundary, and remediation guidance.
+- [x] Add a dedicated Security testing workspace for project-level generation, safe execution, findings, severity, remediation state, and evidence links.
+- [x] Make the security-generation content explicit and defensive: show target, category, expected secure behavior, severity, safe execution boundary, and remediation guidance.
 - [ ] Clearly label passive checks versus active/destructive probes; active probes must stay opt-in, target-scoped, and blocked unless the user has explicit authorization.
 - [ ] Add UI acceptance tests for empty, loading, unauthorized, failed, warning, cancelled, and passed security-run states.
 - [ ] Complete asynchronous, deduplicated ZAP baseline-scan handling with a pinned image, durable run record, timeout/cancellation, Docker/network prerequisites, and documented scope.
 
 ### 4. Decision-score metric for test cases
 
-- [ ] Add an explainable `decision_score` (0–100) to generated UI, API, and security test cases, with a structured `decision_score_factors` breakdown.
+- [ ] Add an explainable `decision_score` (0–100) to generated UI, API, and security test cases, with a structured `decision_score_factors` breakdown. UI and security cases are complete; API-generated cases remain.
 - [ ] Use a documented weighted formula: user/agent priority, risk or severity, target-change/coverage gap, historical failure or flakiness, and execution cost; never derive the score from sensitive request values.
 - [ ] Display the score, confidence band, and top contributing factors in test-case lists and detail views; permit sort/filter by score.
 - [ ] Include decision-score distribution and highest-risk unexecuted cases in the PDF report and add tests for score bounds, determinism, and redaction.
