@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import ApiTestingPage from './pages/ApiTestingPage'
+import SecurityTestingPage from './pages/SecurityTestingPage'
 import { LogOut } from 'lucide-react'
 import aquaLogo from './assets/aqua-logo.png'
 
@@ -35,6 +36,7 @@ function ProtectedLayout() {
             </div>
             </Link>
             <Link to="/api-testing" className="hidden text-sm font-medium text-slate-600 hover:text-primary-600 md:inline dark:text-slate-300">API testing</Link>
+            <Link to="/security-testing" className="hidden text-sm font-medium text-slate-600 hover:text-primary-600 md:inline dark:text-slate-300">Security testing</Link>
           <div className="flex items-center gap-2">
             {user?.username ? (
               <span className="hidden text-sm text-slate-500 sm:inline dark:text-slate-400">
@@ -80,6 +82,7 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectName" element={<ProjectDetailPage />} />
           <Route path="/api-testing" element={<ApiTestingPage />} />
+          <Route path="/security-testing" element={<SecurityTestingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

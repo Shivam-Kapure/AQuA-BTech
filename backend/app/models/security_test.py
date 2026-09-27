@@ -25,6 +25,8 @@ class SecurityTestCaseCreate(BaseModel):
     test_type: SecurityTestType = Field(..., description="Type of the security test")
     expected_secure_behavior: str = Field(..., description="What the secure behavior should be")
     severity: str = Field(..., description="Severity (e.g., high, medium, low)")
+    decision_score: int = Field(default=50, ge=0, le=100, description="Explainable prioritization score")
+    decision_score_factors: dict[str, int] = Field(default_factory=dict)
     
     # Internal routing properties
     url: str = Field(..., description="The URL the test is associated with")
