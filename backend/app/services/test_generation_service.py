@@ -7,6 +7,7 @@ from app.core.llm import get_llm_client
 from app.db.repositories.project_repo import ProjectRepository
 from app.db.repositories.test_case_repo import TestCaseRepository
 from app.models.test_case import TestCaseCreate, TestStep, TestCaseInDB
+from app.services.decision_scoring import decision_metadata
 
 # New imports for context-aware generation
 from app.core.browser.playwright_controller import fetch_page_html
@@ -146,7 +147,14 @@ async def generate_test_cases_for_url(
         metadata: dict[str, Any] = {}
         for key in ("test_id", "expected_result", "category", "priority"):
             if key in item:
-                metadata[key] = item[key]
+              metadata[key] = item[key]
+        metadata.update(
+            decision_metadata(
+                priority=priority if isinstance(priority, str) else None,
+                category=category if isinstance(category, str) else None,
+                steps=steps,
+            )
+        )
 
         tc = TestCaseCreate(
             name=name,

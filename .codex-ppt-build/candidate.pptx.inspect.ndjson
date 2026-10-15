@@ -1,0 +1,95 @@
+{"kind":"deck","id":"pr/v6h0j3","name":"Deck"}
+{"kind":"layout","layoutId":"0da90437-d30d-442f-b70e-0ef8d8451725","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"daaf3654-8e09-4c5d-9d32-a15fb903865a","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/qiemcc","slide":1,"title":"AQUA: Current Work and Project Status","textShapes":23}
+{"kind":"textbox","id":"sh/gnidk7md","slide":1,"text":"AQUA: Current Work and Project Status","textPreview":"AQUA: Current Work and Project Status","textChars":37,"textLines":1,"bbox":[60,46,1120,44]}
+{"kind":"textbox","id":"sh/f29wb25s","slide":1,"text":"Repository snapshot · 27 September 2026 · Completion estimate based on delivered commits and validation results","textPreview":"Repository snapshot · 27 September 2026 · Completion estimate based on delivered commits and validation results","textChars":111,"textLines":1,"bbox":[60,94,1120,28]}
+{"kind":"shape","id":"sh/e10vix4n","slide":1,"bbox":[60,132,1160,3]}
+{"kind":"shape","id":"sh/t0re9cn2","slide":1,"bbox":[60,160,260,92]}
+{"kind":"textbox","id":"sh/szidg7mh","slide":1,"text":"65%","textPreview":"65%","textChars":3,"textLines":1,"bbox":[78,174,224,36]}
+{"kind":"textbox","id":"sh/ry9c725w","slide":1,"text":"Estimated delivery","textPreview":"Estimated delivery","textChars":18,"textLines":1,"bbox":[78,212,224,24]}
+{"kind":"shape","id":"sh/6x0vex4b","slide":1,"bbox":[350,160,260,92]}
+{"kind":"textbox","id":"sh/5w7u5snq","slide":1,"text":"48 / 48","textPreview":"48 / 48","textChars":7,"textLines":1,"bbox":[368,174,224,36]}
+{"kind":"textbox","id":"sh/4vydcnm5","slide":1,"text":"Backend tests passing","textPreview":"Backend tests passing","textChars":21,"textLines":1,"bbox":[368,212,224,24]}
+{"kind":"shape","id":"sh/qpwfu5cv","slide":1,"bbox":[640,160,260,92]}
+{"kind":"textbox","id":"sh/rq5gnatg","slide":1,"text":"Pass","textPreview":"Pass","textChars":4,"textLines":1,"bbox":[658,174,224,36]}
+{"kind":"textbox","id":"sh/crehwfu1","slide":1,"text":"Frontend lint and build","textPreview":"Frontend lint and build","textChars":23,"textLines":1,"bbox":[658,212,224,24]}
+{"kind":"shape","id":"sh/dsnypkbm","slide":1,"bbox":[930,160,260,92]}
+{"kind":"textbox","id":"sh/21cfq5cz","slide":1,"text":"54","textPreview":"54","textChars":2,"textLines":1,"bbox":[948,174,224,36]}
+{"kind":"textbox","id":"sh/32lgjqtk","slide":1,"text":"Indexed API handlers","textPreview":"Indexed API handlers","textChars":20,"textLines":1,"bbox":[948,212,224,24]}
+{"kind":"textbox","id":"sh/43uxsvup","slide":1,"text":"Completed capabilities","textPreview":"Completed capabilities","textChars":22,"textLines":1,"bbox":[60,286,530,30]}
+{"kind":"shape","id":"sh/po3yl0ba","slide":1,"bbox":[64,328,7,7]}
+{"kind":"textbox","id":"sh/uxsfmlcn","slide":1,"text":"Browser test generation, execution, results, and visual validation","textPreview":"Browser test generation, execution, results, and visual validation","textChars":66,"textLines":1,"bbox":[82,315,500,42]}
+{"kind":"shape","id":"sh/fylgfqd8","slide":1,"bbox":[64,385,7,7]}
+{"kind":"textbox","id":"sh/j2hwnm90","slide":1,"text":"OpenAPI and Postman imports, assertions, workflows, run history","textPreview":"OpenAPI and Postman imports, assertions, workflows, run history","textChars":63,"textLines":1,"bbox":[82,372,500,42]}
+{"kind":"shape","id":"sh/i18vehsf","slide":1,"bbox":[64,442,7,7]}
+{"kind":"textbox","id":"sh/54zepwr6","slide":1,"text":"Passive API security checks, ZAP entry points, evidence redaction","textPreview":"Passive API security checks, ZAP entry points, evidence redaction","textChars":65,"textLines":1,"bbox":[82,429,500,42]}
+{"kind":"shape","id":"sh/k3qdgral","slide":1,"bbox":[64,499,7,7]}
+{"kind":"textbox","id":"sh/761wr69c","slide":1,"text":"Project ownership, URL protection, route-JWT and dependency readiness","textPreview":"Project ownership, URL protection, route-JWT and dependency readiness","textChars":69,"textLines":1,"bbox":[82,486,500,42]}
+{"kind":"textbox","id":"sh/658vi1sr","slide":1,"text":"Next delivery focus","textPreview":"Next delivery focus","textChars":19,"textLines":1,"bbox":[650,286,530,30]}
+{"kind":"textbox","id":"sh/t8jetwr2","slide":1,"text":"Integration","textPreview":"Integration","textChars":11,"textLines":1,"bbox":[650,324,105,24]}
+{"kind":"textbox","id":"sh/s7adkrah","slide":1,"text":"Run core flows with MongoDB, LM Studio, Playwright, and a test target","textPreview":"Run core flows with MongoDB, LM Studio, Playwright, and a test target","textChars":69,"textLines":1,"bbox":[650,347,520,38]}
+{"kind":"textbox","id":"sh/naxcf2ts","slide":1,"text":"Release","textPreview":"Release","textChars":7,"textLines":1,"bbox":[650,400,105,24]}
+{"kind":"textbox","id":"sh/m9ov6xs7","slide":1,"text":"Validate deployment, seed a demo project, and rehearse the walkthrough","textPreview":"Validate deployment, seed a demo project, and rehearse the walkthrough","textChars":70,"textLines":1,"bbox":[650,423,520,38]}
+{"kind":"textbox","id":"sh/cfmtg3q5","slide":1,"text":"Polish","textPreview":"Polish","textChars":6,"textLines":1,"bbox":[650,476,105,24]}
+{"kind":"textbox","id":"sh/dgvap8rq","slide":1,"text":"Split the 783 kB frontend entry chunk and remove deprecated APIs","textPreview":"Split the 783 kB frontend entry chunk and remove deprecated APIs","textChars":64,"textLines":1,"bbox":[650,499,520,38]}
+{"kind":"textbox","id":"sh/qdkret8z","slide":1,"text":"Watchlist: 27 Python deprecation warnings remain. Full acceptance testing depends on live external services and a reachable target application.","textPreview":"Watchlist: 27 Python deprecation warnings remain. Full acceptance testing depends on live external services and a reachable target applic...","textChars":143,"textLines":1,"bbox":[60,618,1120,46]}
+{"kind":"notes","id":"nt/qiemcc","slide":1,"text":"Source: AQUA Git history and repository validation run on 27 September 2026. Backend: 48 tests passed. Frontend: lint and production build passed."}
+{"kind":"slide","id":"sl/ran8c5","slide":2,"title":"AQUA: Delivery Timeline","textShapes":29}
+{"kind":"textbox","id":"sh/j6p4jypw","slide":2,"text":"AQUA: Delivery Timeline","textPreview":"AQUA: Delivery Timeline","textChars":23,"textLines":1,"bbox":[60,46,1120,44]}
+{"kind":"textbox","id":"sh/47i5s3qh","slide":2,"text":"Delivered milestones are taken from Git history. Future dates are a recommended delivery plan, not a committed schedule.","textPreview":"Delivered milestones are taken from Git history. Future dates are a recommended delivery plan, not a committed schedule.","textChars":120,"textLines":1,"bbox":[60,94,1120,28]}
+{"kind":"shape","id":"sh/58rml872","slide":2,"bbox":[60,132,1160,3]}
+{"kind":"textbox","id":"sh/690nud8n","slide":2,"text":"10 Jul","textPreview":"10 Jul","textChars":6,"textLines":1,"bbox":[390,153,60,18]}
+{"kind":"shape","id":"sh/ra94nip8","slide":2,"bbox":[420,180,1,414]}
+{"kind":"textbox","id":"sh/sbi5w3qt","slide":2,"text":"21 Sep","textPreview":"21 Sep","textChars":6,"textLines":1,"bbox":[516.67,153,60,18]}
+{"kind":"shape","id":"sh/tcrmp87y","slide":2,"bbox":[546.67,180,1,414]}
+{"kind":"textbox","id":"sh/mdw3i983","slide":2,"text":"22 Sep","textPreview":"22 Sep","textChars":6,"textLines":1,"bbox":[643.33,153,60,18]}
+{"kind":"shape","id":"sh/7e54bepo","slide":2,"bbox":[673.33,180,1,414]}
+{"kind":"textbox","id":"sh/fix8jy1o","slide":2,"text":"27 Sep","textPreview":"27 Sep","textChars":6,"textLines":1,"bbox":[770,153,60,18]}
+{"kind":"shape","id":"sh/ehoratk3","slide":2,"bbox":[800,180,1,414]}
+{"kind":"textbox","id":"sh/1kfal8je","slide":2,"text":"2 Oct","textPreview":"2 Oct","textChars":5,"textLines":1,"bbox":[896.67,153,60,18]}
+{"kind":"shape","id":"sh/0j69c329","slide":2,"bbox":[926.67,180,1,414]}
+{"kind":"textbox","id":"sh/rex8fy1c","slide":2,"text":"7 Oct","textPreview":"7 Oct","textChars":5,"textLines":1,"bbox":[1023.33,153,60,18]}
+{"kind":"shape","id":"sh/qtor6tkr","slide":2,"bbox":[1053.33,180,1,414]}
+{"kind":"textbox","id":"sh/dgfqh8ji","slide":2,"text":"11 Oct","textPreview":"11 Oct","textChars":6,"textLines":1,"bbox":[1150,153,60,18]}
+{"kind":"shape","id":"sh/sf69832x","slide":2,"bbox":[1180,180,1,414]}
+{"kind":"textbox","id":"sh/3qd8be1g","slide":2,"text":"Foundation and architecture","textPreview":"Foundation and architecture","textChars":27,"textLines":1,"bbox":[60,190,310,26]}
+{"kind":"textbox","id":"sh/ip4r29kv","slide":2,"text":"Done","textPreview":"Done","textChars":4,"textLines":1,"bbox":[300,190,100,26]}
+{"kind":"shape","id":"sh/mlkru94n","slide":2,"bbox":[420,193,760,20]}
+{"kind":"shape","id":"sh/7mdsne58","slide":2,"bbox":[420,195,69.67,16]}
+{"kind":"textbox","id":"sh/8nm9wjmt","slide":2,"text":"Core browser testing","textPreview":"Core browser testing","textChars":20,"textLines":1,"bbox":[60,238,310,26]}
+{"kind":"textbox","id":"sh/9ovapone","slide":2,"text":"Done","textPreview":"Done","textChars":4,"textLines":1,"bbox":[300,238,100,26]}
+{"kind":"shape","id":"sh/up4ryt4z","slide":2,"bbox":[420,241,760,20]}
+{"kind":"shape","id":"sh/vqdsry54","slide":2,"bbox":[477,243,69.67,16]}
+{"kind":"textbox","id":"sh/grmt03mp","slide":2,"text":"API testing workspace","textPreview":"API testing workspace","textChars":21,"textLines":1,"bbox":[60,286,310,26]}
+{"kind":"textbox","id":"sh/hcvatona","slide":2,"text":"Done","textPreview":"Done","textChars":4,"textLines":1,"bbox":[300,286,100,26]}
+{"kind":"shape","id":"sh/id4b2t4v","slide":2,"bbox":[420,289,760,20]}
+{"kind":"shape","id":"sh/3exsvy5g","slide":2,"bbox":[546.67,291,44.33,16]}
+{"kind":"textbox","id":"sh/d8zuls7i","slide":2,"text":"Security and evidence hardening","textPreview":"Security and evidence hardening","textChars":31,"textLines":1,"bbox":[60,334,310,26]}
+{"kind":"textbox","id":"sh/s7qdsn6x","slide":2,"text":"Done","textPreview":"Done","textChars":4,"textLines":1,"bbox":[300,334,100,26]}
+{"kind":"shape","id":"sh/r6hcj2pc","slide":2,"bbox":[420,337,760,20]}
+{"kind":"shape","id":"sh/ql8vqxo7","slide":2,"bbox":[559.33,339,57,16]}
+{"kind":"textbox","id":"sh/1czupc7u","slide":2,"text":"Research and documentation","textPreview":"Research and documentation","textChars":26,"textLines":1,"bbox":[60,382,310,26]}
+{"kind":"textbox","id":"sh/0bqdw769","slide":2,"text":"In progress","textPreview":"In progress","textChars":11,"textLines":1,"bbox":[300,382,100,26]}
+{"kind":"shape","id":"sh/fahcn2po","slide":2,"bbox":[420,385,760,20]}
+{"kind":"shape","id":"sh/e98vuxo3","slide":2,"bbox":[616.33,387,183.67,16]}
+{"kind":"textbox","id":"sh/pgjetc7q","slide":2,"text":"End-to-end integration","textPreview":"End-to-end integration","textChars":22,"textLines":1,"bbox":[60,430,310,26]}
+{"kind":"textbox","id":"sh/ofad0r65","slide":2,"text":"Planned","textPreview":"Planned","textChars":7,"textLines":1,"bbox":[300,430,100,26]}
+{"kind":"shape","id":"sh/kbuxsbqd","slide":2,"bbox":[420,433,760,20]}
+{"kind":"shape","id":"sh/lwnylgry","slide":2,"bbox":[800,435,126.67,16]}
+{"kind":"textbox","id":"sh/y9cfql8n","slide":2,"text":"Deployment and demo readiness","textPreview":"Deployment and demo readiness","textChars":29,"textLines":1,"bbox":[60,478,310,26]}
+{"kind":"textbox","id":"sh/zalgjq9s","slide":2,"text":"Planned","textPreview":"Planned","textChars":7,"textLines":1,"bbox":[300,478,100,26]}
+{"kind":"shape","id":"sh/c7uxobqh","slide":2,"bbox":[420,481,760,20]}
+{"kind":"shape","id":"sh/x83yhgr2","slide":2,"bbox":[926.67,483,126.67,16]}
+{"kind":"textbox","id":"sh/a5cfm18b","slide":2,"text":"Performance and technical debt","textPreview":"Performance and technical debt","textChars":30,"textLines":1,"bbox":[60,526,310,26]}
+{"kind":"textbox","id":"sh/b6lgf69w","slide":2,"text":"Planned","textPreview":"Planned","textChars":7,"textLines":1,"bbox":[300,526,100,26]}
+{"kind":"shape","id":"sh/w3yh0vql","slide":2,"bbox":[420,529,760,20]}
+{"kind":"shape","id":"sh/h47yt076","slide":2,"bbox":[1053.33,531,126.67,16]}
+{"kind":"shape","id":"sh/ry90zut8","slide":2,"bbox":[60,620,14,14]}
+{"kind":"textbox","id":"sh/qx0jq9sn","slide":2,"text":"Done","textPreview":"Done","textChars":4,"textLines":1,"bbox":[82,617,72,20]}
+{"kind":"shape","id":"sh/d0ri14be","slide":2,"bbox":[170,620,14,14]}
+{"kind":"textbox","id":"sh/szi1szat","slide":2,"text":"In progress","textPreview":"In progress","textChars":11,"textLines":1,"bbox":[192,617,90,20]}
+{"kind":"shape","id":"sh/fm903e9k","slide":2,"bbox":[310,620,14,14]}
+{"kind":"textbox","id":"sh/e10ju9sz","slide":2,"text":"Planned","textPreview":"Planned","textChars":7,"textLines":1,"bbox":[332,617,80,20]}
+{"kind":"textbox","id":"sh/1ob25ora","slide":2,"text":"Source: Git commits from 10 July to 22 September 2026 and repository scan on 27 September 2026.","textPreview":"Source: Git commits from 10 July to 22 September 2026 and repository scan on 27 September 2026.","textChars":95,"textLines":1,"bbox":[60,658,1120,18]}
+{"kind":"notes","id":"nt/ran8c5","slide":2,"text":"Source: AQUA Git history. Delivered work is shown in green, documentation work in blue, and proposed next phase in amber."}

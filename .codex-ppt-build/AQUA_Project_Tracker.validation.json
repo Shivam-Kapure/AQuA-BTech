@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "presentation-finalization.v1",
+  "finalSha256": "9bf16dae4359d124a76cea1615b301d80aab59ed1f62e5110a330ebc9c7c2310",
+  "byteCount": 19706,
+  "packageIntegrity": {
+    "chart_count": 0,
+    "claim_boundary": "Structural package checks only; no slide text, notes, formulas, chart values, or native PowerPoint execution were inspected.",
+    "finding_count": 0,
+    "findings": [],
+    "notes_parts_skipped": 2,
+    "relationship_part_count": 9,
+    "slide_count": 2,
+    "status": "pass",
+    "exitCode": 0,
+    "findingCount": 0,
+    "warnings": []
+  },
+  "presentationLayout": {
+    "finding_count": 0,
+    "findings": [],
+    "font_policy": {
+      "checked_text_script_count": 52,
+      "native_font_rendering_verified": false,
+      "observed_font_families": [
+        "Helvetica Neue"
+      ],
+      "observed_font_use_counts": {
+        "Helvetica Neue": 52
+      },
+      "passed": true,
+      "performed": true
+    },
+    "slide_count": 2,
+    "slide_size_in": [
+      13.3333,
+      7.5
+    ],
+    "warning_count": 5,
+    "warnings": [
+      {
+        "kind": "substantial_text_frame_overlap",
+        "left_object_id": "18",
+        "overlap_height_in": 0.2708,
+        "overlap_width_in": 0.7292,
+        "right_object_id": "19",
+        "slide": 2
+      },
+      {
+        "kind": "substantial_text_frame_overlap",
+        "left_object_id": "30",
+        "overlap_height_in": 0.2708,
+        "overlap_width_in": 0.7292,
+        "right_object_id": "31",
+        "slide": 2
+      },
+      {
+        "kind": "substantial_text_frame_overlap",
+        "left_object_id": "34",
+        "overlap_height_in": 0.2708,
+        "overlap_width_in": 0.7292,
+        "right_object_id": "35",
+        "slide": 2
+      },
+      {
+        "kind": "substantial_text_frame_overlap",
+        "left_object_id": "42",
+        "overlap_height_in": 0.2708,
+        "overlap_width_in": 0.7292,
+        "right_object_id": "43",
+        "slide": 2
+      },
+      {
+        "kind": "substantial_text_frame_overlap",
+        "left_object_id": "46",
+        "overlap_height_in": 0.2708,
+        "overlap_width_in": 0.7292,
+        "right_object_id": "47",
+        "slide": 2
+      }
+    ],
+    "exitCode": 0,
+    "findingCount": 0,
+    "fontPolicy": {
+      "checked_text_script_count": 52,
+      "native_font_rendering_verified": false,
+      "observed_font_families": [
+        "Helvetica Neue"
+      ],
+      "observed_font_use_counts": {
+        "Helvetica Neue": 52
+      },
+      "passed": true,
+      "performed": true
+    }
+  },
+  "fontSelection": {
+    "basis": "design",
+    "approvedFamilies": [
+      "Helvetica Neue"
+    ],
+    "scriptFonts": {},
+    "referenceSha256": null,
+    "referenceFontsVerifiedInEncodedText": false,
+    "checked_text_script_count": 52,
+    "native_font_rendering_verified": false,
+    "observed_font_families": [
+      "Helvetica Neue"
+    ],
+    "observed_font_use_counts": {
+      "Helvetica Neue": 52
+    },
+    "passed": true,
+    "performed": true
+  },
+  "firstPartyImport": {
+    "performed": true,
+    "passed": true,
+    "slideCount": 2,
+    "sha256": "9bf16dae4359d124a76cea1615b301d80aab59ed1f62e5110a330ebc9c7c2310",
+    "runtimeNodeModules": "/Users/maaaazin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules",
+    "nodeExecutable": "/Users/maaaazin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node"
+  },
+  "nativeTableArithmetic": {
+    "performed": true,
+    "checked_column_count": 0,
+    "checks": [],
+    "claim_boundary": "Displayed-value arithmetic with rounding tolerance; not source-data verification.",
+    "eligible_table_count": 0,
+    "finding_count": 0,
+    "findings": [],
+    "native_table_count": 0,
+    "passed": true,
+    "schema_version": "presentation-native-table-arithmetic.v1",
+    "skipped_tables": [],
+    "slide_count": 2,
+    "warning_count": 0,
+    "warnings": []
+  },
+  "nativeChartTitles": {
+    "performed": true,
+    "checks": [],
+    "finding_count": 0,
+    "findings": [],
+    "native_chart_count": 0,
+    "native_powerpoint_verified": false,
+    "passed": true,
+    "presentation_sha256": "9bf16dae4359d124a76cea1615b301d80aab59ed1f62e5110a330ebc9c7c2310",
+    "schema_version": "presentation-native-chart-titles.v1",
+    "slide_count": 2,
+    "source_text_emitted": false,
+    "unresolved_linked_title_count": 0
+  },
+  "sourceDerivedPolicyFlags": [
+    "--expected-slide-size-emu",
+    "12192000,6858000",
+    "--validate-bullet-geometry",
+    "--validate-heading-fit",
+    "--cover-role",
+    "none",
+    "--approved-font-family",
+    "Helvetica Neue"
+  ],
+  "nativeChartValidation": {
+    "detectedOwnerSlides": [],
+    "detectedChartCount": 0,
+    "targetApplication": null,
+    "sourceChartOwnersExplicitlyDeclared": false,
+    "validatorRan": false,
+    "passed": true
+  }
+}

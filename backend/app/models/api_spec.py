@@ -55,6 +55,8 @@ class ApiTestCase(BaseModel):
     variables: dict[str, str] = Field(default_factory=dict)
     auth_context: "ApiAuthContext | None" = None
     assertions: list[ApiAssertion] = Field(default_factory=list)
+    decision_score: int = Field(default=50, ge=0, le=100)
+    decision_score_factors: dict[str, int] = Field(default_factory=dict)
 
 
 class ApiAuthContext(BaseModel):
