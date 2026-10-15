@@ -23,6 +23,8 @@ async def test_generated_cases_are_validated_against_operations(monkeypatch: pyt
     cases = await api_case_generation.generate_api_test_cases(spec)
 
     assert cases[0].method == "GET"
+    assert cases[0].decision_score == 50
+    assert cases[0].decision_score_factors["priority"] == 20
 
 
 @pytest.mark.asyncio

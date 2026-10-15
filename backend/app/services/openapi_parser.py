@@ -32,6 +32,28 @@ def _load_document(document: str | dict[str, Any]) -> dict[str, Any]:
     return parsed
 
 
+def _resolve_local_refs(value: Any, root: dict[str, Any], seen: frozenset[str] = frozenset()) -> Any:
+    """Resolve local JSON Pointer references without fetching remote documents."""
+    if isinstance(value, list):
+        return [_resolve_local_refs(item, root, seen) for item in value]
+    if not isinstance(value, dict):
+        return value
+    reference = value.get("$ref")
+    if isinstance(reference, str) and reference.startswith("#/") and reference not in seen:
+        target: Any = root
+        try:
+            for segment in reference[2:].split("/"):
+                target = target[segment.replace("~1", "/").replace("~0", "~")]
+        except (KeyError, TypeError):
+            return value
+        resolved = _resolve_local_refs(target, root, seen | {reference})
+        siblings = {key: item for key, item in value.items() if key != "$ref"}
+        if isinstance(resolved, dict):
+            return {**resolved, **_resolve_local_refs(siblings, root, seen)}
+        return resolved
+    return {key: _resolve_local_refs(item, root, seen) for key, item in value.items()}
+
+
 def parse_openapi_document(document: str | dict[str, Any]) -> ApiSpec:
     raw = _load_document(document)
     info = raw.get("info") or {}
@@ -48,7 +70,7 @@ def parse_openapi_document(document: str | dict[str, Any]) -> ApiSpec:
         for method, operation in path_item.items():
             if method.lower() not in HTTP_METHODS or not isinstance(operation, dict):
                 continue
-            parameters = [*path_parameters, *(operation.get("parameters") or [])]
+            parameters = _resolve_local_refs([*path_parameters, *(operation.get("parameters") or [])], raw)
             request_schema = ((operation.get("requestBody") or {}).get("content") or {})
             request_schema = next(iter(request_schema.values()), {}).get("schema") if request_schema else None
             response_schema = None

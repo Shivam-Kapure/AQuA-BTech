@@ -9,6 +9,7 @@ from app.core.llm import get_llm_client
 from app.db.repositories.project_repo import ProjectRepository
 from app.db.repositories.security_test_repo import SecurityTestCaseRepository
 from app.models.security_test import SecurityTestCaseCreate, SecurityTestCaseInDB
+from app.services.decision_scoring import score_test_case
 
 # Context-aware generation
 from app.core.browser.playwright_controller import fetch_page_html
@@ -59,15 +60,6 @@ async def generate_security_tests_for_url(
     Use the configured LLM to generate security test cases for a URL
     and persist them to MongoDB.
     """
-    # 1. Scrape the DOM and build context
-    html = await fetch_page_html(url)
-    elements = extract_interactive_elements(html)
-    dom_context = build_dom_context_string(elements)
-    
-    logger.info(f"Generated DOM context length for security: {len(dom_context)} characters for {url}")
-
-    client = get_llm_client()
-
     if not project_name:
         raise ValueError("project_name is required to generate security test cases.")
 
@@ -76,6 +68,20 @@ async def generate_security_tests_for_url(
         project_name, url=url, owner_id=owner_id
     )
     project_id = project.id
+    repo = SecurityTestCaseRepository(project_name=project.name)
+    existing = await repo.list(project_id=project_id)
+    if existing:
+        logger.info(f"Reusing {len(existing)} existing security tests for project {project.name}")
+        return existing
+
+    # 1. Scrape the DOM and build context
+    html = await fetch_page_html(url)
+    elements = extract_interactive_elements(html)
+    dom_context = build_dom_context_string(elements)
+    
+    logger.info(f"Generated DOM context length for security: {len(dom_context)} characters for {url}")
+
+    client = get_llm_client()
 
     prompt = SECURITY_PROMPT_TEMPLATE.format(url=url, dom_context=dom_context)
     messages = [
@@ -124,6 +130,13 @@ async def generate_security_tests_for_url(
             continue
 
         try:
+            severity = item.get("severity", "low")
+            score, factors = score_test_case(
+                priority=severity,
+                category=item.get("category", "General"),
+                severity=severity,
+                step_count=1,
+            )
             tc = SecurityTestCaseCreate(
                 test_id=item.get("test_id", "UNKNOWN"),
                 title=item.get("title", "Unnamed Security Test"),
@@ -133,13 +146,14 @@ async def generate_security_tests_for_url(
                 parameter=item.get("parameter", ""),
                 test_type=item.get("test_type", "input_validation"),
                 expected_secure_behavior=item.get("expected_secure_behavior", "Secure default"),
-                severity=item.get("severity", "low"),
+                severity=severity,
+                decision_score=score,
+                decision_score_factors=factors,
                 url=url,
             )
             test_case_creates.append(tc)
         except Exception as parse_e:
             logger.warning(f"Skipping malformed security test case: {parse_e}")
 
-    repo = SecurityTestCaseRepository(project_name=project.name)
     created = await repo.create_many(test_case_creates, project_id=project_id)
     return created
