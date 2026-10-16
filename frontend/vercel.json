@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://<hf-username>-aqua-backend.hf.space/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://aqua-backend-632611164207.asia-south1.run.app/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
