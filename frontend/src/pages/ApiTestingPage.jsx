@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Save, ShieldCheck } from 'lucide-react'
 import client from '../api/client'
+import { errorMessage } from '../api/errors'
 
 const example = JSON.stringify({
   openapi: '3.0.3',
@@ -42,6 +43,7 @@ export default function ApiTestingPage() {
   const [selectedRun, setSelectedRun] = useState(null)
   const [workflow, setWorkflow] = useState([])
   const [generatedCases, setGeneratedCases] = useState([])
+  const [caseResults, setCaseResults] = useState({})
   const [runningOperation, setRunningOperation] = useState(null)
   const [activeJob, setActiveJob] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -77,7 +79,7 @@ export default function ApiTestingPage() {
       setRequest(data.operations[0] ? initialRequest(data, data.operations[0]) : null)
       setLoadedSourceUrl(source)
       setFindings([]); toast.success(`Imported ${data.operations.length} operations`)
-    } catch (error) { toast.error(error.response?.data?.detail || 'Could not parse OpenAPI document') } finally { setLoading(false) }
+    } catch (error) { toast.error(errorMessage(error, 'Could not parse OpenAPI document')) } finally { setLoading(false) }
   }
 
   function chooseOperation(operation) {
@@ -88,7 +90,7 @@ export default function ApiTestingPage() {
     if (!spec) return
     setLoading(true)
     try { await client.post('/api/v1/api-specs/import', loadedSourceUrl ? { source_url: loadedSourceUrl, project_name: projectName || spec.title } : { document, project_name: projectName || spec.title }); await loadSavedSpecs(); toast.success('API specification saved') }
-    catch (error) { toast.error(error.response?.data?.detail || 'Could not save API specification') } finally { setLoading(false) }
+    catch (error) { toast.error(errorMessage(error, 'Could not save API specification')) } finally { setLoading(false) }
   }
 
   async function generateCases() {
@@ -97,8 +99,9 @@ export default function ApiTestingPage() {
     try {
       const { data } = await client.post('/api/v1/api-specs/generate-tests', { spec, count: 5 })
       setGeneratedCases(data)
+      setCaseResults({})
       toast.success(`${data.length} API test cases generated`)
-    } catch (error) { toast.error(error.response?.data?.detail || 'Could not generate API test cases') } finally { setLoading(false) }
+    } catch (error) { toast.error(errorMessage(error, 'Could not generate API test cases')) } finally { setLoading(false) }
   }
 
   async function execute() {
@@ -114,14 +117,37 @@ export default function ApiTestingPage() {
       })
       setActiveJob({ id: data.job_id, status: 'queued', label: `${selected.operation_id} execution` })
       await pollJob(data.job_id, 120, `${selected.operation_id} execution`)
-    } catch (error) { toast.error(error.response?.data?.detail || 'API execution failed') } finally { setRunningOperation(null) }
+    } catch (error) { toast.error(errorMessage(error, 'API execution failed')) } finally { setRunningOperation(null) }
+  }
+
+  async function runGeneratedCase(testCase, index) {
+    setCaseResults((previous) => ({ ...previous, [index]: { status: 'running' } }))
+    try {
+      const { data } = await client.post('/api/v1/api-specs/execute', { ...testCase, project_name: projectName || spec?.title })
+      setCaseResults((previous) => ({ ...previous, [index]: { status: data.status, result: data.result } }))
+      setRuns((previous) => [data, ...previous.filter((run) => run.id !== data.id)])
+      return data.status
+    } catch (error) {
+      setCaseResults((previous) => ({ ...previous, [index]: { status: 'error', message: errorMessage(error, 'API execution failed') } }))
+      return 'error'
+    }
+  }
+
+  async function runAllGeneratedCases() {
+    setLoading(true)
+    let passed = 0
+    for (const [index, testCase] of generatedCases.entries()) {
+      if ((await runGeneratedCase(testCase, index)) === 'passed') passed += 1
+    }
+    setLoading(false)
+    toast(`${passed}/${generatedCases.length} API test cases passed`)
   }
 
   async function runWorkflow() {
     if (!workflow.length) return
     setLoading(true)
     try { const { data } = await client.post('/api/v1/api-specs/execute-workflow', workflow); setSelectedRun({ test_name: 'Workflow', result: data }); toast.success('Workflow completed') }
-    catch (error) { toast.error(error.response?.data?.detail || 'Workflow failed') } finally { setLoading(false) }
+    catch (error) { toast.error(errorMessage(error, 'Workflow failed')) } finally { setLoading(false) }
   }
 
   async function pollJob(jobId, remaining = 120, successMessage = 'Job completed') {
@@ -140,11 +166,11 @@ export default function ApiTestingPage() {
     }
     if (remaining <= 0) {
       setActiveJob(null)
-      toast.error('Security scan status polling timed out')
+      toast.error('Job status polling timed out')
       return
     }
     await new Promise((resolve) => setTimeout(resolve, 500))
-    return pollJob(jobId, remaining - 1)
+    return pollJob(jobId, remaining - 1, successMessage)
   }
 
   async function scan() {
@@ -155,18 +181,18 @@ export default function ApiTestingPage() {
       setActiveJob({ id: data.job_id, status: 'queued' })
       await pollJob(data.job_id, 120, 'Passive security scan completed')
     }
-    catch (error) { toast.error(error.response?.data?.detail || 'Security scan failed') } finally { setLoading(false) }
+    catch (error) { toast.error(errorMessage(error, 'Security scan failed')) } finally { setLoading(false) }
   }
 
   async function cancelActiveJob() {
     if (!activeJob?.id) return
     try { await client.post(`/api/v1/api-specs/jobs/${activeJob.id}/cancel`); setActiveJob(null); toast('Job cancelled') }
-    catch (error) { toast.error(error.response?.data?.detail || 'Could not cancel security scan') }
+    catch (error) { toast.error(errorMessage(error, 'Could not cancel security scan')) }
   }
 
   async function updateFinding(finding, remediation_status) {
     try { const { data } = await client.patch(`/api/v1/api-specs/findings/${finding.id}`, { remediation_status, remediation_note: finding.remediation_note || null }); setSavedFindings((items) => items.map((item) => item.id === data.id ? data : item)) }
-    catch (error) { toast.error(error.response?.data?.detail || 'Could not update finding') }
+    catch (error) { toast.error(errorMessage(error, 'Could not update finding')) }
   }
 
   const updateRequest = (key, value) => setRequest((current) => ({ ...current, [key]: value }))
@@ -197,7 +223,29 @@ export default function ApiTestingPage() {
       </section>
       {selected && request ? <section className="glass-card p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Request editor</h2><p className="mt-1 font-mono text-xs text-slate-500">{selected.method} {operationUrl(spec, selected, request.pathValues)}</p></div><button type="button" onClick={execute} disabled={!!runningOperation} className="btn-primary">{runningOperation ? 'Running…' : 'Run operation'}</button></div><div className="mt-4 grid gap-4 md:grid-cols-2"><div><h3 className="text-sm font-semibold">Path parameters</h3>{(selected.parameters || []).filter((p) => p.in === 'path').map((parameter) => <label key={parameter.name} className="mt-2 block text-xs text-slate-500">{parameter.name}<input className={inputClass} value={request.pathValues[parameter.name] || ''} onChange={(event) => updateMap('pathValues', parameter.name, event.target.value)} /></label>)}</div><div><h3 className="text-sm font-semibold">Query parameters</h3>{(selected.parameters || []).filter((p) => p.in === 'query').map((parameter) => <label key={parameter.name} className="mt-2 block text-xs text-slate-500">{parameter.name}<input className={inputClass} value={request.query[parameter.name] || ''} onChange={(event) => updateMap('query', parameter.name, event.target.value)} /></label>)}</div><div><h3 className="text-sm font-semibold">Headers</h3><textarea className={`${inputClass} min-h-24 font-mono text-xs`} value={JSON.stringify(request.headers, null, 2)} onChange={(event) => { try { updateRequest('headers', JSON.parse(event.target.value)) } catch { /* keep current map until valid JSON */ } }} /></div><div><h3 className="text-sm font-semibold">JSON body</h3><textarea className={`${inputClass} min-h-24 font-mono text-xs`} placeholder="Optional JSON body" value={request.body} onChange={(event) => updateRequest('body', event.target.value)} /></div><div><h3 className="text-sm font-semibold">Authentication</h3><div className="mt-2 flex gap-2"><select className={inputClass} value={request.authContext.scheme} onChange={(event) => updateRequest('authContext', { ...request.authContext, scheme: event.target.value })}><option value="bearer">Bearer</option><option value="basic">Basic</option></select><input className={inputClass} type="password" placeholder="Token or encoded credentials" value={request.authContext.token} onChange={(event) => updateRequest('authContext', { ...request.authContext, token: event.target.value })} /></div><p className="mt-1 text-xs text-slate-500">The token is sent for this run and is redacted from stored evidence.</p></div><div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Assertions</h3><button type="button" className="text-xs text-primary-600" onClick={() => updateRequest('assertions', [...request.assertions, { kind: 'status', expected: 200, path: null }])}>Add assertion</button></div>{request.assertions.map((assertion, index) => <div key={index} className="mt-2 grid grid-cols-3 gap-2"><select className={inputClass} value={assertion.kind} onChange={(event) => updateAssertion(index, 'kind', event.target.value)}><option value="status">Status</option><option value="header">Header</option><option value="json_field">JSON field</option><option value="content_type">Content type</option><option value="response_time_ms">Response time</option></select><input className={inputClass} placeholder="Expected" value={assertion.expected ?? ''} onChange={(event) => updateAssertion(index, 'expected', event.target.value)} /><input className={inputClass} placeholder="Path/header (optional)" value={assertion.path || ''} onChange={(event) => updateAssertion(index, 'path', event.target.value)} /></div>)}</div></div><button type="button" className="btn-secondary mt-4" onClick={addWorkflowStep}>Add to workflow</button></section> : null}
         {workflow.length ? <section className="glass-card p-5"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-semibold">Workflow builder</h2><button type="button" onClick={runWorkflow} disabled={loading} className="btn-primary">Run workflow</button></div><div className="mt-3 space-y-2">{workflow.map((step, index) => <div key={`${step.name}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex items-center justify-between"><span>{index + 1}. {step.name}</span><button type="button" className="text-xs text-rose-600" onClick={() => setWorkflow((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div><div className="mt-2 grid gap-2 sm:grid-cols-2"><input className={inputClass} placeholder="Variable name, e.g. access_token" value={Object.keys(step.extract)[0] || ''} onChange={(event) => setWorkflow((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, extract: event.target.value ? { [event.target.value]: Object.values(item.extract)[0] || '$.token' } : {} } : item))} /><input className={inputClass} placeholder="JSONPath, e.g. $.token" value={Object.values(step.extract)[0] || ''} onChange={(event) => setWorkflow((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, extract: Object.keys(item.extract)[0] ? { [Object.keys(item.extract)[0]]: event.target.value } : {} } : item))} /></div></div>)}</div></section> : null}
-        {generatedCases.length ? <section className="glass-card p-5"><h2 className="font-display text-lg font-semibold">Generated API cases</h2><div className="mt-3 space-y-2">{generatedCases.map((testCase, index) => <div key={`${testCase.name}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{testCase.name}</span><span className="rounded-full bg-cyan-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-800 dark:text-cyan-200">Decision {testCase.decision_score}/100</span></div><p className="mt-1 font-mono text-xs text-slate-500">{testCase.method} {testCase.url} · {testCase.assertions.length} assertion{testCase.assertions.length === 1 ? '' : 's'}</p></div>)}</div></section> : null}
+        {generatedCases.length ? <section className="glass-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-lg font-semibold">Generated API cases</h2>
+            <button type="button" className="btn-primary text-sm" disabled={loading} onClick={runAllGeneratedCases}>Run all</button>
+          </div>
+          <div className="mt-3 space-y-2">{generatedCases.map((testCase, index) => {
+            const outcome = caseResults[index]
+            const failedAssertions = (outcome?.result?.assertions || []).filter((assertion) => !assertion.passed)
+            return <div key={`${testCase.name}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold">{testCase.name}</span>
+                <div className="flex items-center gap-2">
+                  {outcome ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${outcome.status === 'passed' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : outcome.status === 'running' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-300' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'}`}>{outcome.status}</span> : null}
+                  <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-800 dark:text-cyan-200">Decision {testCase.decision_score}/100</span>
+                  <button type="button" className="btn-secondary px-2 py-1 text-xs" disabled={loading || outcome?.status === 'running'} onClick={() => runGeneratedCase(testCase, index)}>Run</button>
+                </div>
+              </div>
+              <p className="mt-1 font-mono text-xs text-slate-500">{testCase.method} {testCase.url} · {testCase.assertions.length} assertion{testCase.assertions.length === 1 ? '' : 's'}{outcome?.result?.status_code ? ` · HTTP ${outcome.result.status_code}` : ''}</p>
+              {outcome?.message ? <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">{outcome.message}</p> : null}
+              {failedAssertions.map((assertion, assertionIndex) => <p key={assertionIndex} className="mt-1 font-mono text-xs text-rose-600 dark:text-rose-300">{assertion.kind}{assertion.path ? ` ${assertion.path}` : ''}: expected {JSON.stringify(assertion.expected)}, got {JSON.stringify(assertion.actual)}</p>)}
+            </div>
+          })}</div>
+        </section> : null}
       {selectedRun ? <section className="glass-card p-5"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-semibold">Run detail</h2><button type="button" className="text-sm text-slate-500" onClick={() => setSelectedRun(null)}>Close</button></div><pre className="mt-3 max-h-80 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(selectedRun, null, 2)}</pre></section> : null}
       <section className="grid gap-5 lg:grid-cols-2"><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">API run history</h2><div className="mt-3 space-y-2">{runs.length ? runs.map((run) => { const state = String(run.status || (run.result?.passed ? 'passed' : 'failed')).toLowerCase(); const complete = state === 'passed' || state === 'failed' || state === 'cancelled' || state === 'warning'; return <button type="button" key={run.id} onClick={() => setSelectedRun(run)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-3 text-left text-sm dark:border-slate-700"><span className="font-medium">{run.test_name}</span><span className={state === 'passed' ? 'text-emerald-600' : complete ? 'text-rose-600' : 'text-amber-600'}>{state} · {complete ? (run.result?.status_code ?? 'n/a') : 'in progress'}</span></button> }) : <p className="text-sm text-slate-500">No API runs yet.</p>}</div></div><div className="glass-card p-5"><h2 className="font-display text-lg font-semibold">Findings and remediation</h2><div className="mt-3 space-y-2">{[...findings, ...savedFindings].length ? [...findings, ...savedFindings].map((finding, index) => <div key={`${finding.id || finding.category}-${index}`} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{finding.category}</span>{finding.id ? <select className="rounded border border-slate-200 bg-transparent px-2 py-1 text-xs dark:border-slate-700" value={finding.remediation_status || 'open'} onChange={(event) => updateFinding(finding, event.target.value)}><option value="open">Open</option><option value="accepted">Accepted</option><option value="fixed">Fixed</option></select> : <span className="text-amber-600">new</span>}</div><p className="mt-1 text-slate-600 dark:text-slate-300">{finding.finding}</p></div>) : <p className="text-sm text-slate-500">Run a passive scan to create findings.</p>}</div></div></section>
     </div>

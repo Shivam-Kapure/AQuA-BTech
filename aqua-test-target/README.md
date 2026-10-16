@@ -10,3 +10,5 @@ npm run dev
 The app expects local MongoDB on `mongodb://127.0.0.1:27017` and creates a `circle_social` database with `users`, `posts`, and `sessions` collections. Set `MONGODB_URL` to use another MongoDB connection.
 
 Open [http://127.0.0.1:3001](http://127.0.0.1:3001) after starting the app. Create an account from the sign-in panel, then publish posts, like them, add comments, or search the feed. Accounts and posts remain saved after the server restarts. Your browser session lasts 30 days and is restored after refresh.
+
+After signing in, the sign-in panel is replaced by your account card and a **Sign out** button appears in the header. Errors (wrong password, taken username, empty fields, guest likes) appear as inline messages on the page rather than browser pop-ups.

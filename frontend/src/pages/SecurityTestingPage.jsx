@@ -2,6 +2,7 @@ import { Loader2, Play, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import client from '../api/client'
+import { errorMessage } from '../api/errors'
 import Badge from '../components/Badge'
 
 function statusVariant(status) {
@@ -75,7 +76,7 @@ export default function SecurityTestingPage() {
       toast.success('Security test cases are ready')
       await loadTests()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Could not generate security tests')
+      toast.error(errorMessage(error, 'Could not generate security tests'))
     } finally {
       setGenerating(false)
     }
@@ -88,7 +89,7 @@ export default function SecurityTestingPage() {
       toast(data.status === 'PASS' ? 'Security test passed' : `Security test ${String(data.status).toLowerCase()}`)
       await loadTests()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Could not run security test')
+      toast.error(errorMessage(error, 'Could not run security test'))
     } finally {
       setRunningId(null)
     }

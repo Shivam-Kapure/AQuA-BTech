@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from app.config import settings
+from app.core.browser.dom_parser import visible_text
+from app.core.llm.groq_client import get_groq_client
 from app.core.llm.openai_compat_client import OpenAICompatClient
+from app.core.llm.prompt_context import app_context_block
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -37,6 +40,7 @@ async def validate_test_outcome_from_screenshot(
     description: str,
     expected_result: str,
     steps: list[Any],
+    app_context: str | None = None,
 ) -> dict[str, str]:
     """
     Ask the LLM to classify pass/fail from text snapshot plus test context.
@@ -46,12 +50,7 @@ async def validate_test_outcome_from_screenshot(
     if dom_after_path:
         p = Path(dom_after_path)
         if p.exists():
-            raw = p.read_text(encoding="utf-8", errors="ignore")
-            no_script = re.sub(r"<script[\s\S]*?</script>", " ", raw, flags=re.IGNORECASE)
-            no_style = re.sub(r"<style[\s\S]*?</style>", " ", no_script, flags=re.IGNORECASE)
-            stripped = re.sub(r"<[^>]+>", " ", no_style)
-            dom_text = re.sub(r"\s+", " ", stripped).strip()
-            dom_text = dom_text[:7000]
+            dom_text = visible_text(p.read_text(encoding="utf-8", errors="ignore"))[:7000]
 
     steps_text = "\n".join(
         f"{i+1}. {getattr(s, 'value', None) or getattr(s, 'action', None) or s}"
@@ -70,7 +69,8 @@ async def validate_test_outcome_from_screenshot(
         f"Test name: {test_name}\n"
         f"Description: {description or ''}\n"
         f"Expected result: {expected_result or ''}\n"
-        f"Steps:\n{steps_text}\n\n"
+        f"Steps:\n{steps_text}\n"
+        f"{app_context_block(app_context)}\n"
         f"DOM snapshot text (possibly truncated):\n{dom_text or '[not available]'}\n\n"
         f"Runner stdout:\n{(stdout_text or '')[:2000]}\n\n"
         f"Runner stderr:\n{(stderr_text or '')[:2000]}\n\n"
@@ -78,9 +78,12 @@ async def validate_test_outcome_from_screenshot(
         "If uncertain, choose failed and explain why."
     )
 
-    base_url = (settings.AGENT_LMSTUDIO_URL or settings.LMSTUDIO_URL).rstrip("/")
     model = settings.AGENT_LLM_MODEL or settings.LLM_MODEL
-    client = OpenAICompatClient(base_url=base_url, api_key="lm-studio")
+    if (settings.LLM_PROVIDER or "").lower() == "groq":
+        client = get_groq_client()
+    else:
+        base_url = (settings.AGENT_LMSTUDIO_URL or settings.LMSTUDIO_URL).rstrip("/")
+        client = OpenAICompatClient(base_url=base_url, api_key="lm-studio")
 
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
@@ -91,7 +94,9 @@ async def validate_test_outcome_from_screenshot(
         messages,  # type: ignore[arg-type]
         model=model,
         temperature=0.0,
-        max_tokens=300,
+        # Reasoning models (e.g. Groq's gpt-oss) spend output tokens on hidden
+        # reasoning before the JSON verdict, so leave generous headroom.
+        max_tokens=2048,
     )
     payload = _extract_json(result.text)
     status = str(payload.get("status") or "").lower()

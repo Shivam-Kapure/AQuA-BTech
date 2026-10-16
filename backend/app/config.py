@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     LMSTUDIO_URL: str = "http://localhost:1234"
     LLM_PROVIDER: str = "lmstudio"  # "lmstudio" | "groq"
     LLM_MODEL: str = "meta-llama-3-8b-instruct"
+    # Used automatically when LLM_MODEL hits a daily rate limit (e.g. openai/gpt-oss-20b on Groq).
+    LLM_FALLBACK_MODEL: str | None = None
+    # Hidden-reasoning budget for reasoning models (gpt-oss): low | medium | high. Lower = fewer tokens, faster.
+    LLM_REASONING_EFFORT: str | None = "low"
+    # Concurrent LLM requests; more requests queue so they do not starve each other's per-minute quota.
+    LLM_MAX_CONCURRENCY: int = 2
     LLM_TEMPERATURE: float = 0.2
     LLM_TIMEOUT_S: float = 180.0
     LLM_READINESS_REQUIRED: bool = False

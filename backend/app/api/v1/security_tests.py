@@ -70,7 +70,7 @@ async def execute_security_test(
 
     return result
 
-from app.services.zap_scanner import run_zap_scan
+from app.services.zap_scanner import ZapUnavailableError, run_zap_scan
 
 @router.post("/zap-scan/{project_name}")
 async def trigger_zap_scan(
@@ -84,6 +84,8 @@ async def trigger_zap_scan(
     try:
         findings = await run_zap_scan(project_name, owner_id=current_user.id)
         return {"message": "ZAP scan completed successfully", "findings": findings}
+    except ZapUnavailableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

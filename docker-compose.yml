@@ -15,6 +15,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: production
+      PORT: "8000"
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?Set AUTH_SECRET_KEY in the environment}
       MONGODB_URI: mongodb://mongo:27017
       DB_NAME: agentic_testing

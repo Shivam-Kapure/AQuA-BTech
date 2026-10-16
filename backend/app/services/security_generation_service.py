@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import urljoin
+
+import httpx
 
 from loguru import logger
 
@@ -13,7 +16,46 @@ from app.services.decision_scoring import score_test_case
 
 # Context-aware generation
 from app.core.browser.playwright_controller import fetch_page_html
-from app.core.browser.dom_parser import extract_interactive_elements, build_dom_context_string
+from app.core.browser.dom_parser import build_dom_context_string, extract_interactive_elements, page_text_excerpt
+from app.core.url_security import validate_target_url
+from app.services.openapi_parser import parse_openapi_document
+
+SUPPORTED_TEST_TYPES = {
+    "security_headers", "cookie_security", "input_validation", "authentication_configuration", "information_disclosure",
+}
+_TEST_TYPE_ALIASES = {
+    "headers": "security_headers", "security_header": "security_headers", "http_headers": "security_headers",
+    "cookies": "cookie_security", "cookie": "cookie_security",
+    "xss": "input_validation", "injection": "input_validation", "input": "input_validation", "validation": "input_validation",
+    "authentication": "authentication_configuration", "auth": "authentication_configuration", "access_control": "authentication_configuration",
+    "information_leakage": "information_disclosure", "disclosure": "information_disclosure",
+}
+
+
+def _normalize_test_type(value: Any) -> str:
+    key = str(value or "").strip().lower().replace(" ", "_").replace("-", "_")
+    return key if key in SUPPORTED_TEST_TYPES else _TEST_TYPE_ALIASES.get(key, "input_validation")
+
+
+async def _api_endpoint_hints(url: str) -> str:
+    """List the site's API endpoints (from a published OpenAPI document) so auth checks can target them."""
+    for candidate in ("/openapi.json", "/swagger.json"):
+        spec_url = urljoin(url, candidate)
+        try:
+            validate_target_url(spec_url)
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+                response = await client.get(spec_url)
+            if response.status_code != 200:
+                continue
+            spec = parse_openapi_document(response.text)
+        except Exception:
+            continue
+        lines = [
+            f"- {op.method} {op.path} ({'requires authentication' if op.auth_schemes else 'public'})"
+            for op in spec.operations
+        ]
+        return "### API endpoints published by this site\n" + "\n".join(lines) + "\n"
+    return ""
 
 SECURITY_PROMPT_TEMPLATE = """
 You are an expert Application Security Engineer and Penetration Tester. 
@@ -23,6 +65,18 @@ Target URL: {url}
 
 ### Available UI Elements on the Page:
 {dom_context}
+
+### Visible page text (excerpt)
+{page_text}
+
+Treat facts stated in this text as authoritative: demo/test credentials, rules, limits and the exact
+wording of messages it mentions. Use them in steps and expected results instead of guessing.
+
+{api_hints}
+Rules for "target":
+- Use a full URL on this site or a path starting with "/" (for example an API endpoint above). Never a description.
+- authentication_configuration tests must target an endpoint that should require sign-in (from the list above when available); public pages are expected to be reachable anonymously.
+- input_validation tests: target the endpoint that receives the input, method GET or POST, and the parameter name.
 
 ## Your Task
 Generate 5 high-quality security test cases appropriate for this page, ONLY using the elements provided above and understanding the context of the page.
@@ -83,7 +137,12 @@ async def generate_security_tests_for_url(
 
     client = get_llm_client()
 
-    prompt = SECURITY_PROMPT_TEMPLATE.format(url=url, dom_context=dom_context)
+    prompt = SECURITY_PROMPT_TEMPLATE.format(
+        url=url,
+        dom_context=dom_context,
+        page_text=page_text_excerpt(html) or "(no visible text)",
+        api_hints=await _api_endpoint_hints(url),
+    )
     messages = [
         {
             "role": "system",
@@ -92,13 +151,64 @@ async def generate_security_tests_for_url(
         {"role": "user", "content": prompt},
     ]
 
-    res = await client.chat(
-        messages,
-        response_format={"type": "json_object"},
-    )
+    for attempt in range(2):
+        res = await client.chat(
+            messages,
+            response_format={"type": "json_object"},
+        )
+        raw = res.text.strip()
+        try:
+            parsed = _parse_cases(raw)
+            break
+        except json.JSONDecodeError as e:
+            if attempt == 1:
+                raise ValueError(f"Failed to parse LLM JSON for security test cases: {e}\nRaw: {raw}") from e
+            logger.warning(f"Invalid JSON for security test cases ({e}); asking the model to correct it")
+            messages = messages + [
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": f"That output is not valid JSON ({e}). Return ONLY the corrected JSON array."},
+            ]
 
-    raw = res.text.strip()
+    test_case_creates: list[SecurityTestCaseCreate] = []
+    for index, item in enumerate(parsed, start=1):
+        if not isinstance(item, dict):
+            continue
 
+        try:
+            severity = str(item.get("severity", "low")).lower()
+            if severity not in {"high", "medium", "low"}:
+                severity = "medium"
+            score, factors = score_test_case(
+                priority=severity,
+                category=item.get("category", "General"),
+                severity=severity,
+                step_count=1,
+            )
+            tc = SecurityTestCaseCreate(
+                # Our own sequential IDs: runs look tests up by test_id, so they must be unique.
+                test_id=f"SEC{index:03d}",
+                title=item.get("title", "Unnamed Security Test"),
+                category=item.get("category", "General"),
+                target=str(item.get("target") or url),
+                method=str(item.get("method") or "GET"),
+                parameter=str(item.get("parameter") or ""),
+                test_type=_normalize_test_type(item.get("test_type")),
+                expected_secure_behavior=item.get("expected_secure_behavior", "Secure default"),
+                severity=severity,
+                decision_score=score,
+                decision_score_factors=factors,
+                url=url,
+            )
+            test_case_creates.append(tc)
+        except Exception as parse_e:
+            logger.warning(f"Skipping malformed security test case: {parse_e}")
+
+    created = await repo.create_many(test_case_creates, project_id=project_id)
+    return created
+
+
+def _parse_cases(raw: str) -> list[Any]:
+    """Extract the JSON array of security cases from an LLM reply."""
     json_str = raw
     if "```" in raw:
         start = raw.find("```json")
@@ -116,44 +226,9 @@ async def generate_security_tests_for_url(
         if first != -1 and last != -1 and last > first:
             json_str = raw[first : last + 1]
 
-    try:
-        parsed = json.loads(json_str)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to parse LLM JSON for security test cases: {e}\nRaw: {raw}") from e
-
+    parsed = json.loads(json_str)
+    if isinstance(parsed, dict):
+        parsed = next((value for value in parsed.values() if isinstance(value, list)), [parsed])
     if not isinstance(parsed, list):
-        raise ValueError("LLM response JSON must be an array of security test cases")
-
-    test_case_creates: list[SecurityTestCaseCreate] = []
-    for item in parsed:
-        if not isinstance(item, dict):
-            continue
-
-        try:
-            severity = item.get("severity", "low")
-            score, factors = score_test_case(
-                priority=severity,
-                category=item.get("category", "General"),
-                severity=severity,
-                step_count=1,
-            )
-            tc = SecurityTestCaseCreate(
-                test_id=item.get("test_id", "UNKNOWN"),
-                title=item.get("title", "Unnamed Security Test"),
-                category=item.get("category", "General"),
-                target=item.get("target", url),
-                method=item.get("method", ""),
-                parameter=item.get("parameter", ""),
-                test_type=item.get("test_type", "input_validation"),
-                expected_secure_behavior=item.get("expected_secure_behavior", "Secure default"),
-                severity=severity,
-                decision_score=score,
-                decision_score_factors=factors,
-                url=url,
-            )
-            test_case_creates.append(tc)
-        except Exception as parse_e:
-            logger.warning(f"Skipping malformed security test case: {parse_e}")
-
-    created = await repo.create_many(test_case_creates, project_id=project_id)
-    return created
+        raise json.JSONDecodeError("Expected a JSON array of security test cases", json_str, 0)
+    return parsed
