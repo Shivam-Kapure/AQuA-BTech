@@ -294,6 +294,8 @@ async function start() {
 }
 
 start().catch((error) => {
-  console.error(`Could not connect to MongoDB at ${mongoUrl}:`, error.message)
+  // Never log the password from the connection string.
+  const safeUrl = mongoUrl.replace(/\/\/([^:@/]+):[^@]+@/, '//$1:****@')
+  console.error(`Could not connect to MongoDB at ${safeUrl}:`, error.message)
   process.exit(1)
 })

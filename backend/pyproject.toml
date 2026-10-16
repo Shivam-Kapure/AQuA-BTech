@@ -21,7 +21,6 @@ dependencies = [
     "groq>=0.4.0",                   # Optional: Cloud fallback
     # Vector DB & Embeddings
     "chromadb>=0.4.22",
-    "sentence-transformers>=2.3.1",
     # Browser Automation
     "playwright>=1.41.0",
     "beautifulsoup4>=4.12.0",
