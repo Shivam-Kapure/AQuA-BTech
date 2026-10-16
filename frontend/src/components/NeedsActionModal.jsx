@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { errorMessage } from '../api/errors'
 
 export default function NeedsActionModal({
   open,
@@ -29,7 +30,7 @@ export default function NeedsActionModal({
       toast.success('Inputs saved — re-running test')
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Could not resume test')
+      toast.error(errorMessage(err, 'Could not resume test'))
     } finally {
       setBusy(false)
     }

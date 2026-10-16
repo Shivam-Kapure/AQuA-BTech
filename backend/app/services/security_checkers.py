@@ -182,6 +182,13 @@ async def check_authentication_configuration(url: str) -> dict[str, Any]:
                 "evidence": f"Anonymous request returned HTTP {response.status_code}.",
                 "recommendation": "Keep authentication enforcement enabled and test authorized roles separately.",
             }
+        if response.status_code in {200, 206} and "text/html" in response.headers.get("content-type", ""):
+            return {
+                "status": "WARNING",
+                "finding": "Page is publicly accessible to anonymous visitors.",
+                "evidence": f"Anonymous request returned HTTP {response.status_code} (HTML page).",
+                "recommendation": "Confirm this page is meant to be public; protected data should come from endpoints that return 401 without a session.",
+            }
         if response.status_code in {200, 206}:
             return {
                 "status": "FAIL",

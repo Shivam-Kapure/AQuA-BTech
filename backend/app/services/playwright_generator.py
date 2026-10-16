@@ -1,6 +1,6 @@
 """
 Generate a runnable Playwright Python script from a test case using the LLM.
-Uses LangChain ChatOpenAI (LM Studio compatible) to produce code-only output.
+Uses the shared agent LLM client (Groq or LM Studio) to produce code-only output.
 """
 
 from __future__ import annotations
@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
 from app.config import settings
+from app.core.llm.agent_client import get_agent_llm_client
+from app.core.llm.prompt_context import app_context_block
 from app.core.rag.knowledge_manager import KnowledgeManager
 
 
@@ -19,21 +19,31 @@ SYSTEM_PROMPT = """You are an agentic Playwright test generator. You output only
 
 Requirements for the script:
 - Use ONLY the synchronous API: from playwright.sync_api import sync_playwright, expect (we use sync for subprocess execution).
-- The script must: launch browser (chromium, headless=True), create a page, goto the given URL, then perform each step in order.
+- The script must: launch browser (chromium, headless=True), create a page, goto the given URL with page.goto(url, wait_until="domcontentloaded") (never wait for "networkidle"; busy sites never reach it), then perform each step in order.
+- Elements listed with hidden='initially' only become visible after an action (e.g. signing in); wait for them with expect(...).to_be_visible() after that action.
 - Map natural-language steps to Playwright calls using the supplied page context. Use the exact accessible role, label, or visible name from that context; never invent or normalize a control name (for example, do not substitute "Login" for a control named "Sign in"). "Open the target URL" is already handled by goto.
 - After performing all steps, assert the expected result (e.g. check that the page contains the expected text or element). Use expect from playwright.sync_api or assert with page content.
 - Use sync_playwright() and run everything inside a with block. At the end, close the browser.
 - If the script fails (exception or assertion), exit with non-zero (sys.exit(1)); if all steps and assertions pass, exit 0 (sys.exit(0)).
 - Prefer robust selectors: get_by_role, get_by_text, get_by_label; fallback to CSS.
 - NEVER use page.query_selector() as it can return None and cause 'NoneType' errors. ALWAYS use page.locator() and expect() for assertions.
+- Every locator you act on or assert must match exactly ONE element (Playwright strict mode). Scope it: e.g. post = page.locator("article.post", has_text=unique_text); post.locator(".like").click(). Use .first only when any match is acceptable.
+- Never guess the exact wording of error or success messages you have not seen. Assert that the message element (e.g. page.locator("[role=alert]:visible"), [role=status]:visible, or a visible element whose id/class contains "message" or "error") becomes visible and is not empty, or match key words with a case-insensitive regex: expect(el).to_have_text(re.compile("password", re.I)).
+- Use only real Playwright APIs. expect(locator).to_have_count(n) takes one exact integer; for "at least one" use expect(locator.first).to_be_visible().
+- Make created data unique (e.g. username = "qa_" + uuid.uuid4().hex[:8]; post text with a uuid suffix) so reruns do not collide with earlier data.
+- Wait for results with expect(...) assertions (they auto-retry), never time.sleep().
 - Do not use input() or any interactive stdin. No external files. Single file script only.
-- Start the script with: from playwright.sync_api import sync_playwright, expect\nimport sys, os, json, hashlib, traceback
+- Start the script with: from playwright.sync_api import sync_playwright, expect\nimport sys, os, re, json, uuid, hashlib, traceback
 
 INPUT AND ASSERTION POLICY:
 - For negative login/input validation scenarios (invalid credentials, blank fields, malformed values), DO run the test with clearly invalid/blank values and assert an error state.
 - Error state can be inline on the same page (text/banner/aria-invalid) OR via navigation. Do not assume navigation is required.
-- For positive/protected auth flows, do not guess real credentials. Use TEST_USERNAME (or TEST_EMAIL) and TEST_PASSWORD from env.
-- If a positive auth flow needs credentials and they are missing, emit waiting with required_inputs and exit code 2.
+- NEVER hardcode or guess credentials (no "testuser"/"password123").
+- If the test needs a signed-in user and the page offers account creation (e.g. a "Create account" / "Sign up" / "Register" control),
+  make the test self-sufficient: create a fresh account with a unique username (e.g. "qa_" + uuid.uuid4().hex[:8]) and a password of
+  at least 8 characters, then continue. To test signing in, create the account, sign out, then sign in with the same credentials.
+- Only when the page offers no account creation: use TEST_USERNAME (or TEST_EMAIL) and TEST_PASSWORD from env, and if they are
+  missing emit waiting with required_inputs and exit code 2.
 - For non-auth non-sensitive fields, reasonable dummy values are allowed when needed.
 
 WAITING / FURTHER INPUT REQUIRED:
@@ -65,6 +75,7 @@ def build_user_prompt(
     steps: list[str],
     expected_result: str,
     rag_context: str = "",
+    app_context: str | None = None,
 ) -> str:
     steps_block = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(steps))
     
@@ -85,7 +96,7 @@ Steps to perform (in order):
 {steps_block}
 
 Expected result to assert: {expected_result}
-{context_block}
+{app_context_block(app_context)}{context_block}
 Output only the Python script. Use sync_playwright. On success exit 0, on failure exit 1 and print error to stderr."""
 
 
@@ -97,6 +108,8 @@ async def generate_playwright_script(
     steps: list[Any],
     expected_result: str,
     runtime_input_keys: list[str] | None = None,
+    app_context: str | None = None,
+    repair: tuple[str, str] | None = None,
 ) -> str:
     """Generate a runnable Playwright Python script from test case fields using LLM."""
     steps_str = [_step_text(s) for s in steps]
@@ -113,28 +126,34 @@ async def generate_playwright_script(
         steps=steps_str,
         expected_result=expected_result or "Success",
         rag_context=rag_context,
+        app_context=app_context,
     )
     if runtime_input_keys:
         keys_block = ", ".join(sorted(set(runtime_input_keys)))
         user_content += (
-            "\n\nRuntime input keys available as environment variables for this run: "
-            f"{keys_block}"
+            "\n\nThe user has ALREADY provided these inputs; they are set as environment variables "
+            f"for this run: {keys_block}. Read them with os.environ[\"KEY\"] and use them directly. "
+            "Do NOT emit the waiting protocol for these keys and do not invent other key names "
+            "(e.g. selectors) to ask for."
         )
 
-    # Same URL as test generation; the request "model" parameter selects Phi for script generation.
-    base_url = (settings.AGENT_LMSTUDIO_URL or settings.LMSTUDIO_URL).rstrip("/") + "/v1"
-    model = settings.AGENT_LLM_MODEL or settings.LLM_MODEL
-    llm = ChatOpenAI(
-        api_key="lm-studio",
-        base_url=base_url,
-        model=model,
-        temperature=0.1,
-        max_tokens=2048,
-    )
+    if repair:
+        previous_script, error = repair
+        user_content += (
+            "\n\nA previous version of this script failed because of a bug in the script itself "
+            "(not necessarily in the application). Fix that bug and return the complete corrected script.\n"
+            f"Error:\n{error[:1500]}\n\nPrevious script:\n{previous_script[:6000]}"
+        )
 
-    messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_content)]
-    response = await llm.ainvoke(messages)
-    raw = response.content if hasattr(response, "content") else str(response)
+    # Same client as the rest of the agent (Groq or LM Studio), so rate-limit
+    # retries and the daily-limit model fallback apply here too.
+    result = await get_agent_llm_client().chat(
+        [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_content}],
+        model=settings.AGENT_LLM_MODEL or settings.LLM_MODEL,
+        temperature=0.1,
+        max_tokens=8192,
+    )
+    raw = result.text
 
     # Strip markdown code fence if present
     text = raw.strip()

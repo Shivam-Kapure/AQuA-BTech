@@ -92,7 +92,7 @@ async def scan_api_security(
     findings: list[dict[str, Any]] = []
     for operation in spec.operations:
         findings.extend(_static_authorization_findings(operation))
-        if not operation.auth_schemes:
+        if not operation.auth_schemes and not operation.public:
             findings.append({"operation_id": operation.operation_id, "category": "authentication", "status": "WARNING", "finding": "No authentication scheme is declared for this operation."})
     if not spec.base_urls:
         return _with_severities(findings)

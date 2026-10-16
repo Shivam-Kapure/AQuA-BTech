@@ -73,6 +73,8 @@ def parse_openapi_document(document: str | dict[str, Any]) -> ApiSpec:
             parameters = _resolve_local_refs([*path_parameters, *(operation.get("parameters") or [])], raw)
             request_schema = ((operation.get("requestBody") or {}).get("content") or {})
             request_schema = next(iter(request_schema.values()), {}).get("schema") if request_schema else None
+            if request_schema:
+                request_schema = _resolve_local_refs(request_schema, raw)
             response_schema = None
             responses = operation.get("responses") or {}
             for response in responses.values():
@@ -80,6 +82,7 @@ def parse_openapi_document(document: str | dict[str, Any]) -> ApiSpec:
                 if content:
                     response_schema = next(iter(content.values()), {}).get("schema")
                     if response_schema:
+                        response_schema = _resolve_local_refs(response_schema, raw)
                         break
             security = operation.get("security", global_security)
             auth_names = [name for requirement in security for name in requirement if name in security_schemes]
@@ -94,6 +97,9 @@ def parse_openapi_document(document: str | dict[str, Any]) -> ApiSpec:
                 request_schema=request_schema,
                 response_schema=response_schema,
                 auth_schemes=auth_names,
+                response_codes=[str(code) for code in responses],
+                # `security: []` on an operation is OpenAPI's way to mark it deliberately public.
+                public=operation.get("security") == [],
             ))
 
     servers = raw.get("servers") or []

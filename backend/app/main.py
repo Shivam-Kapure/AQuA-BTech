@@ -1,5 +1,6 @@
 import httpx
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
 from app.config import settings
@@ -57,6 +58,18 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.exception_handler(httpx.HTTPStatusError)
+async def llm_rate_limit_handler(_request: Request, exc: httpx.HTTPStatusError) -> JSONResponse:
+    """Turn provider rate limits into a clear 503 instead of a bare 500."""
+    if exc.response is not None and exc.response.status_code == 429:
+        detail = (
+            "The LLM provider's rate limit was reached (daily quota for the configured models is used up, "
+            "or too many requests this minute). Try again later."
+        )
+        return JSONResponse(status_code=503, content={"detail": detail})
+    return JSONResponse(status_code=502, content={"detail": f"Upstream request failed: {exc}"[:500]})
 
 
 @app.get("/")

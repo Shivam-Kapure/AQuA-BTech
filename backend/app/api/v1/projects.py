@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from pymongo.errors import DuplicateKeyError
 
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.db.repositories.project_repo import ProjectRepository
@@ -19,4 +20,10 @@ async def create_project(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     repo = ProjectRepository()
-    return await repo.create_one(payload, owner_id=current_user.id)
+    try:
+        return await repo.create_one(payload, owner_id=current_user.id)
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A project named '{payload.name}' already exists",
+        ) from None

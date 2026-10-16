@@ -11,6 +11,9 @@ router = APIRouter()
 class GenerateTestsRequest(BaseModel):
     url: str
     project_name: str
+    # Free-text notes about how the app behaves; falls back to the project's description.
+    user_prompt: str | None = None
+    generation_profile: str | None = None  # "quick" | "standard" | "detailed"
 
 
 @router.post("/", response_model=list[TestCaseInDB])
@@ -27,5 +30,7 @@ async def generate_tests(
         url=payload.url,
         project_name=payload.project_name,
         owner_id=current_user.id,
+        app_context=payload.user_prompt,
+        generation_profile=payload.generation_profile,
     )
     return created

@@ -27,6 +27,7 @@ def test_redirect_target_is_resolved_before_validation(monkeypatch: pytest.Monke
     from app.core.url_security import validate_redirect_target
 
     monkeypatch.setattr(settings, "ALLOW_PRIVATE_TARGETS", True)
+    monkeypatch.setattr(settings, "TARGET_HOST_ALLOWLIST", "")
     assert validate_redirect_target("https://example.com/spec.json", "/next.json") == "https://example.com/next.json"
 
 

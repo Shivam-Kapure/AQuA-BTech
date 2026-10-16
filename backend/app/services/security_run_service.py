@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urljoin, urlparse
+
 from loguru import logger
 
 from app.db.repositories.project_repo import ProjectRepository
@@ -12,6 +14,20 @@ from app.services.security_checkers import (
     check_information_disclosure,
     check_authentication_configuration,
 )
+
+def resolve_target_url(target: str | None, page_url: str) -> str:
+    """
+    Turn an LLM-written target into a URL: absolute URLs are kept, paths are joined
+    to the project URL, and descriptions (e.g. "Login form", "form#auth") fall back
+    to the page itself.
+    """
+    candidate = (target or "").strip()
+    if urlparse(candidate).scheme in {"http", "https"}:
+        return candidate
+    if candidate.startswith("/"):
+        return urljoin(page_url, candidate)
+    return page_url
+
 
 async def run_security_test(
     project_name: str, test_id: str, *, owner_id: str | None = None
@@ -32,7 +48,7 @@ async def run_security_test(
 
     # Map test_type to checker
     result = {}
-    target_url = tc.target or tc.url
+    target_url = resolve_target_url(tc.target, tc.url or project.url)
     
     logger.info(f"Running security test {tc.test_id} ({tc.test_type}) against {target_url}")
 

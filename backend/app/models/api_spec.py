@@ -18,6 +18,8 @@ class ApiOperation(BaseModel):
     request_schema: dict | None = None
     response_schema: dict | None = None
     auth_schemes: list[str] = Field(default_factory=list)
+    response_codes: list[str] = Field(default_factory=list)
+    public: bool = False
 
 
 class ApiSpec(BaseModel):
@@ -34,7 +36,8 @@ class ApiSpecRecord(ApiSpec):
     project_name: str | None = None
     source: str = "inline"
     checksum: str
-    version: int = 1
+    # Import counter per project; `version` (inherited) is the spec's own info.version.
+    revision: int = 1
     imported_at: datetime = Field(default_factory=datetime.utcnow)
 
 
