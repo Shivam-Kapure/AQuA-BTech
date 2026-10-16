@@ -91,13 +91,13 @@ async def run_agent_once(
         },
     ]
 
-    # We rely on the small Phi-4-mini model, so keep
-    # temperature low and response length compact.
+    # Keep temperature low; the token cap leaves room for reasoning models
+    # (e.g. Groq's gpt-oss), whose hidden reasoning counts toward max_tokens.
     res = await client.chat(
         messages,
         model=settings.AGENT_LLM_MODEL or settings.LLM_MODEL,
         temperature=0.1,
-        max_tokens=256,
+        max_tokens=2048,
     )
 
     raw = res.text.strip()

@@ -39,7 +39,9 @@ class ApiFindingRepository:
                 {"owner_id": finding.owner_id, "project_name": finding.project_name, "fingerprint": doc["fingerprint"]},
                 {
                     "$set": {key: value for key, value in doc.items() if key not in {"created_at", "first_seen_at", "occurrences"}},
-                    "$setOnInsert": {"created_at": now, "first_seen_at": now, "occurrences": 0},
+                    # $inc creates the field as 1 on insert; also naming it in $setOnInsert
+                    # makes MongoDB reject the update with a path conflict.
+                    "$setOnInsert": {"created_at": now, "first_seen_at": now},
                     "$inc": {"occurrences": 1},
                 },
                 upsert=True,

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -18,7 +19,9 @@ from app.config import settings
 
 
 _SAFE_INHERITED_ENV_KEYS = (
-    "PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL", "PLAYWRIGHT_BROWSERS_PATH"
+    "PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL", "PLAYWRIGHT_BROWSERS_PATH",
+    # Windows: needed by Python/Chromium to start and to find Playwright's browsers.
+    "SYSTEMROOT", "WINDIR", "COMSPEC", "LOCALAPPDATA", "USERPROFILE", "TEMP", "TMP",
 )
 
 
@@ -28,9 +31,12 @@ def _build_child_env(
     """Build a minimal environment so generated code cannot read app secrets."""
     env = {key: os.environ[key] for key in _SAFE_INHERITED_ENV_KEYS if key in os.environ}
     env["ARTIFACT_DIR"] = artifact_dir
+    # UTF-8 for print() and open(): page text (e.g. "♡") otherwise crashes on Windows' cp1252.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     if route_jwt:
         env["AQUA_ROUTE_JWT"] = route_jwt
-    reserved = {"ARTIFACT_DIR", "AQUA_ROUTE_JWT"}
+    reserved = {"ARTIFACT_DIR", "AQUA_ROUTE_JWT", "PYTHONUTF8", "PYTHONIOENCODING"}
     for key, value in (runtime_inputs or {}).items():
         if isinstance(key, str) and key and key.isidentifier() and key not in reserved:
             env[key] = "" if value is None else str(value)
@@ -88,7 +94,7 @@ async def run_playwright_script(
         )
 
         proc = await asyncio.create_subprocess_exec(
-            "python",
+            sys.executable,
             str(path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

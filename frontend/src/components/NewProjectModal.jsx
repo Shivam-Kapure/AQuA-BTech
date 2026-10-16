@@ -2,6 +2,7 @@ import { Loader2, X } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import client from '../api/client'
+import { errorMessage } from '../api/errors'
 
 const PROFILES = [
   {
@@ -50,11 +51,16 @@ export default function NewProjectModal({ open, onClose, onComplete }) {
       setGenLabel(tick)
     }, 700)
     try {
-      await client.post('/api/v1/projects/', {
-        name: name.trim(),
-        url: url.trim(),
-        description: prompt.trim() || undefined,
-      })
+      try {
+        await client.post('/api/v1/projects/', {
+          name: name.trim(),
+          url: url.trim(),
+          description: prompt.trim() || undefined,
+        })
+      } catch (err) {
+        // 409: the project already exists (e.g. an earlier generation failed); reuse it.
+        if (err.response?.status !== 409) throw err
+      }
       await client.post('/api/v1/generate/', {
         url: url.trim(),
         project_name: name.trim(),
@@ -71,7 +77,7 @@ export default function NewProjectModal({ open, onClose, onComplete }) {
       onClose()
     } catch (err) {
       clearInterval(interval)
-      toast.error(err.response?.data?.detail || 'Could not create project or generate tests')
+      toast.error(errorMessage(err, 'Could not create project or generate tests'))
     } finally {
       setBusy(false)
       setGenLabel(1)

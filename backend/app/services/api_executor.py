@@ -61,25 +61,32 @@ def _json_path(value: Any, path: str | None) -> Any:
     return value
 
 
-def _check_assertion(assertion: ApiAssertion, response: httpx.Response, body: Any, elapsed_ms: float) -> bool:
+def _check_assertion(assertion: ApiAssertion, response: httpx.Response, body: Any, elapsed_ms: float) -> tuple[bool, Any]:
+    """Return (passed, actual value). Malformed assertions fail instead of aborting the run."""
     kind = assertion.kind.lower()
-    if kind == "status":
-        return response.status_code == int(assertion.expected)
-    if kind == "header":
-        return response.headers.get(assertion.path or "", "") == str(assertion.expected)
-    if kind == "json_field":
-        return _json_path(body, assertion.path) == assertion.expected
-    if kind == "content_type":
-        return response.headers.get("content-type", "").split(";", 1)[0].strip() == str(assertion.expected)
-    if kind == "response_time_ms":
-        return elapsed_ms <= float(assertion.expected)
-    if kind == "json_schema":
-        try:
-            validate(instance=body, schema=assertion.expected)
-            return True
-        except ValidationError:
-            return False
-    raise ValueError(f"Unsupported API assertion kind: {assertion.kind}")
+    try:
+        if kind == "status":
+            return response.status_code == int(str(assertion.expected).strip()[:3]), response.status_code
+        if kind == "header":
+            actual = response.headers.get(assertion.path or "", "")
+            return actual == str(assertion.expected), actual
+        if kind == "json_field":
+            actual = _json_path(body, assertion.path)
+            return actual == assertion.expected, actual
+        if kind == "content_type":
+            actual = response.headers.get("content-type", "").split(";", 1)[0].strip()
+            return actual == str(assertion.expected), actual
+        if kind == "response_time_ms":
+            return elapsed_ms <= float(assertion.expected), round(elapsed_ms, 2)
+        if kind == "json_schema":
+            try:
+                validate(instance=body, schema=assertion.expected)
+                return True, "matches schema"
+            except ValidationError as exc:
+                return False, exc.message
+    except (TypeError, ValueError, IndexError) as exc:
+        return False, f"invalid assertion: {exc}"
+    return False, f"unsupported assertion kind: {assertion.kind}"
 
 
 async def execute_api_test(test_case: ApiTestCase, *, client: httpx.AsyncClient | None = None) -> dict[str, Any]:
@@ -113,8 +120,14 @@ async def execute_api_test(test_case: ApiTestCase, *, client: httpx.AsyncClient 
             body = response.text
         results = []
         for assertion in test_case.assertions:
-            passed = _check_assertion(assertion, response, body, elapsed_ms)
-            results.append({"kind": assertion.kind, "passed": passed, "path": assertion.path})
+            passed, actual = _check_assertion(assertion, response, body, elapsed_ms)
+            results.append({
+                "kind": assertion.kind,
+                "passed": passed,
+                "path": assertion.path,
+                "expected": assertion.expected,
+                "actual": _redact(actual),
+            })
         return {
             "passed": all(result["passed"] for result in results),
             "status_code": response.status_code,

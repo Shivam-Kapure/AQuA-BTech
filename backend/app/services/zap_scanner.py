@@ -1,7 +1,9 @@
 import os
 import json
+import shutil
 import asyncio
 import tempfile
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any
 from datetime import datetime
@@ -13,6 +15,41 @@ from app.db.repositories.security_test_repo import SecurityTestCaseRepository
 from app.models.security_test import SecurityTestCaseCreate, SecurityTestType
 from app.config import settings
 from app.core.url_security import validate_target_url
+
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+_DOCKER_ENV_KEYS = ("PATH", "HOME", "TMPDIR", "SYSTEMROOT", "WINDIR", "LOCALAPPDATA", "APPDATA", "USERPROFILE", "TEMP", "TMP", "DOCKER_HOST")
+
+
+class ZapUnavailableError(RuntimeError):
+    """Docker (needed to run the ZAP container) is not installed or not running."""
+
+
+async def _ensure_docker_available() -> None:
+    if not shutil.which("docker"):
+        raise ZapUnavailableError("ZAP scans run in Docker, but Docker is not installed. Install Docker Desktop and start it.")
+    process = await asyncio.create_subprocess_exec(
+        "docker", "info",
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        env={key: os.environ[key] for key in _DOCKER_ENV_KEYS if key in os.environ},
+    )
+    try:
+        await asyncio.wait_for(process.wait(), timeout=15)
+    except asyncio.TimeoutError:
+        process.kill()
+        raise ZapUnavailableError("Docker did not respond. Make sure Docker Desktop is running.")
+    if process.returncode != 0:
+        raise ZapUnavailableError("Docker is installed but not running. Start Docker Desktop and try again.")
+
+
+def _container_reachable_url(url: str) -> str:
+    """Inside the ZAP container, localhost is the container itself; point it at the host instead."""
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() in _LOCAL_HOSTS:
+        netloc = "host.docker.internal" + (f":{parsed.port}" if parsed.port else "")
+        return parsed._replace(netloc=netloc).geturl()
+    return url
+
 
 async def run_zap_scan(
     project_name: str, *, owner_id: str | None = None
@@ -31,7 +68,9 @@ async def run_zap_scan(
     if not target_url:
         raise ValueError(f"Project '{project_name}' has no configured target URL.")
     validate_target_url(target_url)
-        
+    await _ensure_docker_available()
+    scan_url = _container_reachable_url(target_url)
+
     logger.info(f"Starting ZAP baseline scan for project '{project_name}' against target '{target_url}'")
     
     # We will use a temporary directory to mount into the docker container to retrieve the JSON report.
@@ -46,10 +85,11 @@ async def run_zap_scan(
         # -J json report filename (saved in /zap/wrk/)
         cmd = [
             "docker", "run", "--rm",
+            "--add-host", "host.docker.internal:host-gateway",
             "-v", f"{temp_path}:/zap/wrk/:rw",
             "-t", settings.ZAP_IMAGE,
             "zap-baseline.py",
-            "-t", target_url,
+            "-t", scan_url,
             "-J", report_filename
         ]
         
@@ -59,7 +99,7 @@ async def run_zap_scan(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ},
+            env={key: os.environ[key] for key in _DOCKER_ENV_KEYS if key in os.environ},
         )
         
         # Add a timeout for the entire scan process (e.g. 5 minutes)

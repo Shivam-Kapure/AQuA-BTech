@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import client from '../api/client'
+import { errorMessage } from '../api/errors'
 import ThemeToggle from '../components/ThemeToggle'
 import { useAuthStore } from '../store/useAuthStore'
 import aquaLogo from '../assets/aqua-logo.png'
@@ -29,8 +30,7 @@ export default function LoginPage() {
       toast.success(mode === 'login' ? 'Welcome back' : 'Account created')
       navigate('/projects', { replace: true })
     } catch (err) {
-      const d = err.response?.data?.detail
-      toast.error(typeof d === 'string' ? d : 'Authentication failed')
+      toast.error(errorMessage(err, 'Authentication failed'))
     } finally {
       setBusy(false)
     }

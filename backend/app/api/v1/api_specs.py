@@ -232,7 +232,7 @@ async def import_api_spec(
     try:
         record = build_api_spec_record(document, owner_id=current_user.id, project_name=payload.project_name, source=source)
         repo = ApiSpecRepository()
-        record.version = await repo.next_version(owner_id=current_user.id, project_name=payload.project_name)
+        record.revision = await repo.next_version(owner_id=current_user.id, project_name=payload.project_name)
         saved = await repo.create(record)
         return saved.model_dump(mode="json")
     except ValueError as exc:

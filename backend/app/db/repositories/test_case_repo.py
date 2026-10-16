@@ -169,3 +169,14 @@ class TestCaseRepository:
                 }
             },
         )
+
+    async def get_cached_script(self, test_case_id: str | ObjectId) -> str | None:
+        """Script from the last passing LLM-generated run, if any (kept out of the API model)."""
+        doc = await self.collection.find_one({"_id": to_object_id(test_case_id)}, {"cached_script": 1})
+        script = (doc or {}).get("cached_script")
+        return script if isinstance(script, str) and script else None
+
+    async def set_cached_script(self, test_case_id: str | ObjectId, script: str | None) -> None:
+        """Store (or clear, when None) the script reused by later runs of this test case."""
+        update = {"$set": {"cached_script": script}} if script else {"$unset": {"cached_script": ""}}
+        await self.collection.update_one({"_id": to_object_id(test_case_id)}, update)

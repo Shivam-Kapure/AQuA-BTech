@@ -25,5 +25,6 @@ class BaseLLMClient(Protocol):
         temperature: float | None = None,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        reasoning_effort: str | None = None,
     ) -> LLMResult: ...
 

@@ -20,7 +20,7 @@ class ApiSpecRepository:
         return db[self.collection_name]
 
     async def ensure_indexes(self) -> None:
-        await self.collection.create_index([("owner_id", 1), ("project_name", 1), ("version", -1)])
+        await self.collection.create_index([("owner_id", 1), ("project_name", 1), ("revision", -1)])
         await self.collection.create_index(
             [("owner_id", 1), ("project_name", 1), ("checksum", 1)],
             unique=True,
@@ -47,4 +47,8 @@ class ApiSpecRepository:
         for doc in docs:
             if isinstance(doc.get("_id"), ObjectId):
                 doc["id"] = str(doc.pop("_id"))
+            if isinstance(doc.get("version"), int):
+                # Records saved before `revision` existed stored the counter in `version`.
+                doc.setdefault("revision", doc["version"])
+                doc["version"] = str(doc["version"])
         return [ApiSpecRecord.model_validate(doc) for doc in docs]

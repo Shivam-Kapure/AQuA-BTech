@@ -13,6 +13,7 @@ import toast from 'react-hot-toast'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import client from '../api/client'
+import { errorMessage } from '../api/errors'
 import Badge from '../components/Badge'
 import JwtModal from '../components/JwtModal'
 import NeedsActionModal from '../components/NeedsActionModal'
@@ -138,7 +139,7 @@ export default function ProjectDetailPage() {
       toast.success('Short test suite generated')
       await loadTests()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Could not generate the short test suite')
+      toast.error(errorMessage(err, 'Could not generate the short test suite'))
     } finally {
       setGeneratingSuite(false)
     }
@@ -159,7 +160,7 @@ export default function ProjectDetailPage() {
       toast.success('Coverage decision completed')
       await loadTests()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Could not run the coverage decision')
+      toast.error(errorMessage(error, 'Could not run the coverage decision'))
     } finally {
       setRunningAgent(false)
     }
@@ -208,7 +209,7 @@ export default function ProjectDetailPage() {
       await loadTests()
     } catch (err) {
       clearTimeout(flip)
-      const msg = err.response?.data?.detail || 'Test run failed'
+      const msg = errorMessage(err, 'Test run failed')
       toast.error(typeof msg === 'string' ? msg : 'Test run failed')
       setRunState((s) => ({
         ...s,
@@ -265,7 +266,7 @@ export default function ProjectDetailPage() {
       await loadTests()
     } catch (err) {
       clearTimeout(flip)
-      const msg = err.response?.data?.detail || 'Could not resume test'
+      const msg = errorMessage(err, 'Could not resume test')
       setRunState((s) => ({
         ...s,
         [key]: {
