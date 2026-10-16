@@ -1,3 +1,23 @@
+# AQuA frontend
+
+React + Vite single-page app for AQuA.
+
+- API calls use relative `/api/...` URLs (`src/api/client.js`). In development, `vite.config.js` proxies `/api` to `http://127.0.0.1:8000`; on Vercel, `vercel.json` rewrites `/api/*` to the Cloud Run backend and sends other paths to `index.html`. No environment variables are needed.
+- `src/api/errors.js` (`errorMessage()`) turns any API error — string, validation list or object — into readable toast text, including a clear message when the backend cannot be reached.
+- The API testing page can run generated API cases individually or with **Run all**, showing expected vs actual for failed assertions.
+- The New Project modal reuses an existing project of the same name (HTTP 409) and generates its tests.
+
+```bash
+npm ci
+npm run dev     # http://localhost:5173
+npm run lint
+npm run build
+```
+
+Deployment: [`../docs/DEPLOYMENT_GUIDE.md`](../docs/DEPLOYMENT_GUIDE.md) (Part I).
+
+---
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

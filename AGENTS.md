@@ -23,7 +23,7 @@ Use `search_code` for literal/text searches after the graph workflow, and docume
 Run commands from the relevant application directory.
 
 ```bash
-cd backend && uv run uvicorn app.main:app --reload  # start API on :8000
+cd backend && uv run uvicorn app.main:app --port 8000  # start API on :8000 (no --reload on Windows for browser tests)
 cd backend && pytest                                # run backend tests
 cd backend && playwright install chromium           # install browser once
 cd frontend && npm ci                               # install locked JS dependencies
@@ -32,7 +32,7 @@ cd frontend && npm run build                        # production build
 cd frontend && npm run lint                         # ESLint checks
 ```
 
-Backend test-execution flows require MongoDB and, where applicable, LM Studio; see `backend/docs/SETUP_AND_TESTING.md`.
+Backend test-execution flows require MongoDB and an LLM provider (Groq by default, or LM Studio); see `backend/docs/SETUP_AND_TESTING.md` and `docs/DEPLOYMENT_GUIDE.md`.
 
 ## Coding Style & Naming Conventions
 

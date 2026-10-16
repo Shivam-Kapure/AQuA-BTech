@@ -1,82 +1,66 @@
-# AQuA-BTech — Local Run (Groq) + 100% Free Cloud Deployment (Revised Guide)
+# AQuA-BTech — Local Run (Groq) + Free-Tier Cloud Deployment
 
 ## Overview
-AQuA runs locally with Groq (no LM Studio) and deploys entirely on free tiers. Render free (512 MB RAM) is not used: the backend loads torch, a sentence-transformers model and headless Chromium, which need far more memory.
+AQuA runs locally with Groq (no LM Studio needed) and deploys on free tiers:
 
-**Chosen free stack:**
 | Component | Host | Why |
 |---|---|---|
-| LLM | Groq free tier | Already supported in code |
+| LLM | Groq free tier (`openai/gpt-oss-120b`, fallback `openai/gpt-oss-20b`) | Fast OpenAI-compatible API |
 | Database | MongoDB Atlas M0 | Free, works with Motor + Mongoose |
-| Backend (FastAPI + Playwright + torch) | **Hugging Face Spaces (Docker, CPU Basic)** | Free: 2 vCPU / **16 GB RAM**, no card needed, runs any Dockerfile |
-| Target app (Express) | **Hugging Face Spaces (Docker)** — second Space | Same free tier, no extra account |
-| Frontend (Vite SPA) | Vercel Hobby | Free, rewrites `/api/*` to backend (no CORS work) |
+| Backend (FastAPI + Playwright/Chromium) | **Google Cloud Run** (Docker, 2 GiB / 1 vCPU, scale to zero) | Chromium needs ~2 GB RAM; free tier + trial credit |
+| Demo target (Circle Social, Express) | **Render** free web service (Node) | Small Node app fits 512 MB |
+| Frontend (Vite SPA) | **Vercel** Hobby | `/api/*` rewrite to Cloud Run → no CORS |
 
-Known free-tier trade-offs (acceptable for a BTech demo): Spaces sleep after ~48 h idle and take 1–3 min to wake; container disk is ephemeral (Chroma vectors, generated scripts and artifacts reset on restart); Spaces must be **public** for Vercel to reach them (secrets stay hidden); ZAP security scans need Docker-in-Docker and won't work on any free host.
+Not used: Hugging Face Docker Spaces (now a paid feature) and Render for the backend (512 MB / 0.1 CPU is too small for Chromium).
+
+Free-tier trade-offs: Render sleeps after 15 min idle (~50 s wake-up); Cloud Run cold starts take ~10–30 s; Cloud Run disk is ephemeral (Chroma RAG data, generated scripts and artifacts reset on restart; test records in Atlas persist); ZAP scans need Docker and do not run on Cloud Run.
 
 ---
 
-## Part A — Code changes (already applied in this repo)
+## Part A — What the code does for this setup
 
-### A1–A3. Groq for every LLM call
-All LLM calls (test generation, Playwright script writing, the pass/fail verdict, API test generation, security test generation) go through one OpenAI-compatible client (`backend/app/core/llm/openai_compat_client.py`), selected by `LLM_PROVIDER` (`groq` or `lmstudio`). That client:
+### LLM layer (`backend/app/core/llm/openai_compat_client.py`)
+All LLM calls (test generation, Playwright script writing, the pass/fail verdict, API test generation, security test generation) use one OpenAI-compatible client selected by `LLM_PROVIDER` (`groq` or `lmstudio`). It:
 - waits out per-minute rate limits (HTTP 429) and retries;
-- switches to `LLM_FALLBACK_MODEL` when the main model hits its **daily** cap;
-- sends `reasoning_effort` (`LLM_REASONING_EFFORT`) to `gpt-oss` models to save tokens.
+- switches to `LLM_FALLBACK_MODEL` (comma-separated chain allowed) when a model hits its **daily** cap, and skips exhausted models afterwards;
+- limits simultaneous requests to `LLM_MAX_CONCURRENCY`;
+- sends `reasoning_effort` (`LLM_REASONING_EFFORT`) to `gpt-oss` models to save tokens;
+- strips `<think>` blocks from replies.
+Rate-limit errors reach users as HTTP 503 with a clear message.
 
-### A4. `backend/Dockerfile` — make it run on HF Spaces (port 7860, non-root uid 1000)
-```dockerfile
-FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
-WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HOME=/app/.cache
-COPY pyproject.toml uv.lock ./
-RUN pip install --no-cache-dir uv && uv sync --locked --no-dev
-COPY app ./app
-RUN mkdir -p .cache data playwright_scripts playwright_artifacts && chown -R 1000:1000 /app
-USER 1000
-EXPOSE 7860
-CMD ["sh", "-c", "/app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
-```
-(Calls the venv's uvicorn directly so `uv run` doesn't try to write a cache as the non-root user. `PORT` lets the same image run locally on 8000.)
+### Backend image (`backend/Dockerfile`)
+Playwright Python base image (Chromium included), `uv sync --locked`, non-root user (uid 1000) with `HOME=/app`, ONNX embedding model downloaded at build time, listens on `$PORT` (Cloud Run sets 8080; 7860 when unset; docker-compose pins 8000).
 
-### A5. New `aqua-test-target/Dockerfile`
-```dockerfile
-FROM node:20-slim
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY . .
-ENV PORT=7860
-USER node
-EXPOSE 7860
-CMD ["node", "server.js"]
-```
-Plus `aqua-test-target/.dockerignore` containing `node_modules` and `.env`.
+### Embeddings
+RAG uses Chroma's bundled ONNX `all-MiniLM-L6-v2` (`backend/app/core/rag/embeddings.py`). `sentence-transformers`/torch were removed.
 
-### A6. New `frontend/vercel.json`
+### Target app (`aqua-test-target/`)
+Has its own `Dockerfile`, but on Render it runs as a plain Node service. `/openapi.json` is served dynamically with `servers` set to the host it is called on.
+
+### Frontend (`frontend/vercel.json`)
 ```json
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://<hf-username>-aqua-backend.hf.space/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://aqua-backend-632611164207.asia-south1.run.app/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
 ```
-
+Replace the destination if your Cloud Run URL differs.
 
 ---
 
 ## Part B — Groq setup
 1. https://console.groq.com → sign in → **API Keys** → **Create API Key** → copy the `gsk_...` key (shown once).
-2. Models: `openai/gpt-oss-120b` (best quality, default) or `openai/gpt-oss-20b` (much higher daily quota). Never use `meta-llama-3-8b-instruct` (an LM Studio name) or retired Groq models such as `llama-3.3-70b-versatile` — Groq returns 404 `model_not_found`. List the models your key can use with `GET https://api.groq.com/openai/v1/models`.
-3. Free-tier limits change — check **console.groq.com/settings/limits**. Each model has a per-minute cap (≈8,000 tokens) and a **daily** cap (≈200,000 tokens). AQuA handles both automatically: per-minute limits are waited out, and when `LLM_MODEL` hits its daily cap it switches to `LLM_FALLBACK_MODEL` (`openai/gpt-oss-20b`, separate quota). `LLM_REASONING_EFFORT=low` cuts token use by ~30% so more tests fit in each minute.
+2. Models: `openai/gpt-oss-120b` (default) and `openai/gpt-oss-20b` (fallback, separate quota). Do not use `meta-llama-3-8b-instruct` (LM Studio name) or retired models such as `llama-3.3-70b-versatile` — Groq returns 404 `model_not_found`. List the models your key can use with `GET https://api.groq.com/openai/v1/models`. `qwen/qwen3.8-27b` is listed but the free tier caps its output at 1,000 tokens/min, too low for test generation.
+3. Limits change — check **console.groq.com/settings/limits**. Each model has a per-minute cap (≈8,000 tokens) and a **daily** cap (≈200,000 tokens). `LLM_REASONING_EFFORT=low` cuts token use by ~30 %.
 
 ## Part C — Local MongoDB + Compass
 1. Compass → New Connection → `mongodb://localhost:27017` → Connect.
-2. No manual setup: the backend creates `agentic_testing` (users, projects, test_cases, test_runs, api_specs, findings, artifacts) and the target app creates `circle_social` on first use.
+2. No manual setup: the backend creates `agentic_testing` and the target app creates `circle_social` on first use.
 
 ## Part D — Local environment
-`backend/.env`:
+`backend/.env` (see `backend/.env.example`):
 ```env
 APP_ENV=development
 AUTH_SECRET_KEY=<any long random string>
@@ -91,9 +75,10 @@ LLM_MODEL=openai/gpt-oss-120b
 AGENT_LLM_MODEL=openai/gpt-oss-120b
 LLM_FALLBACK_MODEL=openai/gpt-oss-20b
 LLM_REASONING_EFFORT=low
+LLM_MAX_CONCURRENCY=2
 LLM_READINESS_REQUIRED=false
 ```
-Target app: **no `.env` needed** — `server.js` doesn't load one, and its defaults (`PORT=3001`, `mongodb://127.0.0.1:27017/circle_social`) are already correct for local.
+Target app: no `.env` needed (defaults: `PORT=3001`, `mongodb://127.0.0.1:27017/circle_social`).
 Frontend: no `.env` needed — `vite.config.js` proxies `/api` to `127.0.0.1:8000`.
 
 ## Part E — Run locally (3 PowerShell terminals)
@@ -106,108 +91,119 @@ cd D:\AQuA\AQuA-BTech\backend; uv sync; uv run playwright install chromium; uv r
 cd D:\AQuA\AQuA-BTech\frontend; npm install; npm run dev
 ```
 Check `http://localhost:8000/health/ready` → `"llm": {"status": "ok", "provider": "groq"}`.
-E2E: open `http://localhost:5173` → Register → New Project (target `http://127.0.0.1:3001`) → Generate Tests → Run one test → refresh Compass. With LM Studio closed, nothing should call port 1234.
+E2E: open `http://localhost:5173` → Register → New Project (target `http://127.0.0.1:3001`) → Generate Tests → Run one test → refresh Compass.
 
 ### When to use `--reload` (Windows)
-On Windows, `--reload` breaks anything that launches headless Chromium. With reload on, uvicorn switches to a selector event loop that cannot start subprocesses, so Playwright fails (`NotImplementedError`, `DOM context length: 0`). It also restarts the server whenever a generated script is written to `playwright_scripts/`, killing the running test (`Script exited with code 3221225786` = "terminated by Ctrl+C"), and that restart can crash with `OSError: [WinError 87]`.
+On Windows, `--reload` breaks anything that launches headless Chromium: uvicorn switches to a selector event loop that cannot start subprocesses (`NotImplementedError`, `DOM context length: 0`), restarts whenever a generated script is written to `playwright_scripts/` (killing the run: `Script exited with code 3221225786`), and the restart can crash with `OSError: [WinError 87]`.
 
-Features that launch Chromium: **Generate Tests** (scrapes the page), **Run / Test**, and security runs.
+Features that launch Chromium: **Generate Tests**, **Run / Test**, and security test generation.
 
 | What you're doing | Command |
 |---|---|
-| Generating or running tests, demos, anything that uses the browser | `uv run uvicorn app.main:app --port 8000` |
-| Editing backend code and checking non-browser features (login/register, projects, `/health/ready`, API testing page, LLM-only endpoints) | `uv run uvicorn app.main:app --reload --reload-dir app --port 8000` |
+| Generating or running tests, demos | `uv run uvicorn app.main:app --port 8000` |
+| Editing backend code and checking non-browser features | `uv run uvicorn app.main:app --reload --reload-dir app --port 8000` |
 
-`--reload-dir app` watches only the source code, so files written to `playwright_scripts/` and `playwright_artifacts/` don't trigger restarts.
-
-Typical workflow:
-1. Editing code → run with `--reload --reload-dir app`.
-2. Ready to generate/run tests → Ctrl+C, start the plain command.
-3. Changed code again → Ctrl+C and restart (the plain command does not pick up changes).
-
-On Linux, macOS or WSL, `--reload --reload-dir app` works even for Playwright runs; the limitation is Windows-only. In the cloud (Hugging Face Spaces) the Dockerfile never uses `--reload`, which is correct for production.
+On Linux, macOS or WSL, `--reload --reload-dir app` works even for Playwright runs. The Docker image never uses `--reload`.
 
 ## Part F — MongoDB Atlas (free M0)
 1. Atlas → Create → **M0 Free** → nearest region.
-2. Security → Database Access → add user `aqua_admin` with a generated password (letters/digits only, or URL-encode special characters).
-3. Security → Network Access → **Allow access from anywhere (0.0.0.0/0)** — HF Spaces has no fixed outbound IP.
-4. Connect → Drivers → copy `mongodb+srv://aqua_admin:<pw>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`.
-   - Backend uses it as-is (DB chosen by `DB_NAME`).
-   - Target app needs the DB name in the path: `...mongodb.net/circle_social?retryWrites=true&w=majority`.
-5. Paste the same URI into Compass to inspect production data.
+2. **Database Access** → add a user, **Autogenerate** the password (letters/digits avoid URL-encoding problems).
+3. **Network Access** → **Add IP Address** → `0.0.0.0/0`, temporary toggle **off** — Render and Cloud Run use changing IPs.
+4. **Connect → Drivers** → copy `mongodb+srv://<user>:<db_password>@<cluster>.mongodb.net/?retryWrites=true&w=majority`.
+   - Backend: use as-is (database chosen by `DB_NAME`).
+   - Target app: add the database name: `...mongodb.net/circle_social?retryWrites=true&w=majority`.
+5. Paste the URI into Compass to inspect production data.
 
-## Part G — Deploy target app to Hugging Face Spaces
-1. Create a free account at https://huggingface.co → Settings → Access Tokens → create a **write** token (used as the git password).
-2. New Space → name `aqua-target` → SDK **Docker** → Blank → hardware **CPU basic (free)** → **Public**.
-3. Space → Settings → **Variables and secrets** → New secret `MONGODB_URL` = the circle_social Atlas URI.
-4. Push the code:
-   ```powershell
-   git clone https://huggingface.co/spaces/<hf-username>/aqua-target D:\hf\aqua-target
-   # copy everything from aqua-test-target EXCEPT node_modules and .env into D:\hf\aqua-target
-   ```
-   Make sure the Space's `README.md` starts with:
-   ```yaml
-   ---
-   title: AQuA Target
-   sdk: docker
-   app_port: 7860
-   ---
-   ```
-   Then `git add . ; git commit -m "Deploy target app" ; git push` (username = HF username, password = the write token).
-5. Wait for **Running**; check `https://<hf-username>-aqua-target.hf.space/api/health` → `{"ok":true,"service":"circle-social","storage":"mongodb"}`.
+## Part G — Deploy the target app to Render
+1. https://render.com → **Sign up with GitHub** → **New → Web Service** → connect the repository.
+2. Settings:
 
-## Part H — Deploy backend to Hugging Face Spaces
-1. New Space → `aqua-backend` → SDK **Docker** → CPU basic (free) → **Public**.
-2. Settings → Variables and secrets:
-   | Name | Type | Value |
-   |---|---|---|
-   | `MONGODB_URI` | secret | Atlas URI (no DB name) |
-   | `GROQ_API_KEY` | secret | `gsk_...` |
-   | `AUTH_SECRET_KEY` | secret | 32+ random chars |
-   | `APP_ENV` | variable | `production` |
-   | `DB_NAME` | variable | `agentic_testing` |
-   | `LLM_PROVIDER` | variable | `groq` |
-   | `LLM_MODEL` / `AGENT_LLM_MODEL` | variable | `openai/gpt-oss-120b` |
-   | `LLM_FALLBACK_MODEL` | variable | `openai/gpt-oss-20b` |
-   | `LLM_REASONING_EFFORT` | variable | `low` |
-   | `ALLOW_PRIVATE_TARGETS` | variable | `false` |
-   | `TARGET_HOST_ALLOWLIST` | variable | leave **empty** so any public URL can be tested, or list hosts (comma-separated) to restrict |
-   | `LLM_READINESS_REQUIRED` | variable | `false` |
-3. Clone `https://huggingface.co/spaces/<hf-username>/aqua-backend`, copy in `backend/`'s `Dockerfile`, `pyproject.toml`, `uv.lock`, `app/` (not `.env`, `.venv`, `playwright_*`, `data/`), add a README with the same front matter (`sdk: docker`, `app_port: 7860`), commit and push.
-4. First build takes ~10–15 min (Playwright image + torch). When **Running**, check `https://<hf-username>-aqua-backend.hf.space/health/ready` → `{"status":"ok", ... "llm":{"status":"ok","provider":"groq"}}`.
+| Field | Value |
+|---|---|
+| Language | **Node** |
+| Branch | `main` |
+| Root Directory | `aqua-test-target` |
+| Build Command | `npm ci` |
+| Start Command | `node server.js` |
+| Instance Type | Free |
+| Environment | `MONGODB_URL` = circle_social URI, `NODE_VERSION` = `20` (do not set `PORT`) |
+| Health Check Path (optional) | `/api/health` |
 
-## Part I — Deploy frontend to Vercel
-1. Put your real backend Space URL in `frontend/vercel.json` (A6), commit and push to GitHub.
-2. Vercel → Add New → Project → import `Shivam-Kapure/AQuA-BTech` → Root Directory `frontend` → preset **Vite** → build `npm run build` → output `dist` → Deploy. Do **not** set `VITE_API_BASE` (the code defaults to relative `/api`, which the rewrite proxies).
-3. Open the Vercel URL → Register → New Project with target `https://<hf-username>-aqua-target.hf.space` → Generate Tests → Run.
+3. Check `https://<service>.onrender.com/api/health` → `{"ok":true,"service":"circle-social","storage":"mongodb"}` and `/openapi.json` → `servers` shows the https Render URL.
 
-## Part J — Verification matrix
+## Part H — Deploy the backend to Google Cloud Run
+1. https://console.cloud.google.com → free trial (card for verification) → create project (e.g. `aqua-btech`).
+2. **Billing → Budgets & alerts → Create budget** → *Alerts only*, small amount (e.g. ₹200), thresholds 50/90/100 %, email alerts on.
+3. **Cloud Run → Connect repository** → **Cloud Build** → **Set up with Cloud Build** → GitHub → select the repository → Branch `^main$`, Build type **Dockerfile**, Source location `/backend/Dockerfile` → Save.
+4. Service settings:
+
+| Setting | Value |
+|---|---|
+| Service name / Region | `aqua-backend` / e.g. `asia-south1` |
+| Authentication | Allow public access |
+| Billing | **Instance-based** (background API jobs/scans need CPU between requests) |
+| Scaling | min `0`, **max `1`** (job status is kept in memory) |
+| Ingress | All |
+| Container port | `8080` |
+| Memory / CPU | 2 GiB / 1 |
+| Request timeout | 900 s |
+| Execution environment | Second generation, Startup CPU boost on |
+| Security → Service account | Default compute account, or a new one with no roles |
+
+5. **Variables & Secrets** (the form also accepts a pasted `.env` block):
+
+| Name | Value |
+|---|---|
+| `APP_ENV` | `production` |
+| `AUTH_SECRET_KEY` | long random string |
+| `MONGODB_URI` | Atlas URI without database name |
+| `DB_NAME` | `agentic_testing` |
+| `LLM_PROVIDER` | `groq` |
+| `GROQ_API_KEY` | `gsk_...` |
+| `LLM_MODEL` / `AGENT_LLM_MODEL` | `openai/gpt-oss-120b` |
+| `LLM_FALLBACK_MODEL` | `openai/gpt-oss-20b` |
+| `LLM_REASONING_EFFORT` | `low` |
+| `LLM_MAX_CONCURRENCY` | `2` |
+| `LLM_READINESS_REQUIRED` | `false` |
+| `ALLOW_PRIVATE_TARGETS` | `false` |
+| `TARGET_HOST_ALLOWLIST` | not set (any public URL allowed) |
+
+6. **Create** → first build ~6–10 min (Build → Push → Deploy). Check `<service-url>/health/ready` → `"status":"ok"`, `"mongodb":"ok"`, `"llm":{"status":"ok","provider":"groq"}`.
+
+## Part I — Deploy the frontend to Vercel
+1. Put your Cloud Run URL in `frontend/vercel.json`, commit and push.
+2. Vercel → **Add New → Project** → import the repository. Vercel detects three apps — click **Import single project** next to **frontend** only.
+3. Root Directory `frontend`, preset **Vite**, default build settings, **no** environment variables (do not set `VITE_API_BASE`).
+4. **Deploy** → open the site → Register → New Project with the Render target URL → Generate → Run.
+
+## Part J — Continuous deployment
+A push to `main` redeploys automatically: Vercel (frontend), Cloud Build → Cloud Run (backend), Render (target, on changes under `aqua-test-target/`).
+
+## Part K — Verification matrix
 | Component | URL | Expected |
 |---|---|---|
 | Local backend | `localhost:8000/health/ready` | `llm.status=ok, provider=groq` |
 | Local frontend | `localhost:5173` | Register, generate, run tests |
-| Target Space | `…-aqua-target.hf.space/api/health` | `{"ok":true,...}` |
-| Backend Space | `…-aqua-backend.hf.space/health/ready` | `status ok`, mongodb ok, llm ok |
-| Vercel | `<project>.vercel.app` | Full flow against the target Space |
+| Render target | `https://<service>.onrender.com/api/health` | `{"ok":true,...}` |
+| Cloud Run backend | `https://<service>.run.app/health/ready` | `status ok`, mongodb ok, llm ok |
+| Vercel | `https://<project>.vercel.app` | Full flow against the Render target |
 
-Before pushing, run `uv run pytest` in `backend/`, plus `npm run lint && npm run build` in `frontend/`; optionally `docker build backend` to catch Dockerfile errors locally.
+Before pushing, run `uv run pytest` in `backend/`, plus `npm run lint && npm run build` in `frontend/`.
 
-## Part K — Troubleshooting
-- **Groq 404 model not found** → wrong model name (see Part B).
-- **Groq 429** → free-tier cap hit. Per-minute limits (e.g. 8,000 tokens/min on `openai/gpt-oss-120b`) are retried automatically after Groq's advertised delay, so running several tests back to back just runs slower. A daily cap needs a wait, or switch to `openai/gpt-oss-20b`.
-- **"Could not write the test script: the LLM provider's rate limit was reached"** → both the main and fallback models are over their caps for the moment. Run the test again in a minute (per-minute cap) or later (daily cap). The backend log shows `switching to openai/gpt-oss-20b` when the fallback kicks in.
-- **How pass/fail is decided** → the Playwright script's own result is final: a script that fails is *failed* with its real error, and a script that passes its `expect(...)`/`assert` checks is *passed*. The LLM verdict is only used when a script passes without checking anything.
-- **Generation mode `llm_repaired`** → the first script had a bug of its own (ambiguous locator, wrong API call, …); AQuA sent the error back to the LLM once and ran the corrected script. Real assertion failures are never retried.
-- **Re-running a passed test is instant** → its script is cached and reused (`generation_mode: cached`); if the cached script ever fails, the cache is cleared and the next run writes a new one.
-- **Some generated tests still fail** → LLM-written tests can misjudge an app (e.g. guess a button name). Run the test again (a new script is written) or describe the app in the project's "Short prompt" so the model gets it right.
-- **Generated tests ignore your context** → the context ("Short prompt") is stored as the project's description and used for generation, scripts and verdicts. Existing projects reuse their old tests, so create a **new** project after changing the context.
-- **Run hangs / connection refused :1234** → edits A1–A3 not applied or `LLM_PROVIDER` not `groq`.
-- **Space stuck "Building"/"Runtime error"** → open the Space **Logs** tab; the most common cause is a missing `app_port: 7860` in README or a permission error writing to `/app` (fixed by A4's `chown`).
-- **Space slow to respond** → it was sleeping; the first request wakes it (1–3 min).
-- **`ServerSelectionTimeoutError`** → Atlas Network Access missing `0.0.0.0/0`, or wrong password/encoding in the URI.
-- **"Target host is not allow-listed"** → `TARGET_HOST_ALLOWLIST` is set and the URL's host is not in it. Leave it empty to allow any URL (restart the backend after editing `.env`).
-- **"Target resolves to a private or reserved address"** → `ALLOW_PRIVATE_TARGETS=false` blocks localhost/LAN targets (the safe setting when deployed). Set it to `true` for local testing.
+## Part L — Troubleshooting
+- **Groq 404 model not found** → wrong or retired model name (see Part B).
+- **Groq 429** → per-minute limits are retried automatically; a daily cap switches to the fallback model.
+- **"Could not write the test script: the LLM provider's rate limit was reached"** / HTTP 503 → all configured models are over their caps; try again in a minute (per-minute) or later (daily).
+- **How pass/fail is decided** → the Playwright script's own result is final: a failing script is *failed* with its real error; a script that passes its `expect(...)`/`assert` checks is *passed*. The LLM verdict is only used when a script passes without checking anything.
+- **Generation mode `llm_repaired`** → the first script had a bug of its own (ambiguous locator, wrong API call, a value used as a selector, …); AQuA sent the error back to the LLM once and ran the corrected script. Real assertion failures are never retried.
+- **Re-running a passed test is instant** → its script is cached (`generation_mode: cached`); a failing cached script is discarded.
+- **Some generated tests still fail** → LLM-written tests can misjudge an app. Run again, or describe the app in the project's "Short prompt". On-page text (e.g. demo credentials) is read automatically.
+- **Generated tests ignore your context** → existing projects reuse their old tests; create a **new** project after changing the context.
+- **"Target host is not allow-listed"** → `TARGET_HOST_ALLOWLIST` is set and the host is not in it; leave it empty to allow any URL (restart the backend).
+- **"Target resolves to a private or reserved address"** → `ALLOW_PRIVATE_TARGETS=false` blocks localhost/LAN targets (the deployed setting). Use public URLs in production.
+- **Render: "Exited with status 1"** → MongoDB connection failed: check `MONGODB_URL`, Atlas Network Access `0.0.0.0/0`, and the password (the log masks it).
+- **Cloud Run deploy fails** → open the service's **Logs**; usually a mistyped variable name (`MONGODB_URI`) or Atlas access.
+- **Slow first request** → cold starts (Render ~50 s, Cloud Run ~10–30 s).
 - **ZAP scan returns 503** → OWASP ZAP runs in Docker; install/start Docker Desktop. Local targets are reached via `host.docker.internal` automatically.
-- **Generated tests/artifacts gone after restart** → expected; free Space disk is ephemeral (test records in Atlas persist).
 - **Local `Executable doesn't exist`** → `uv run playwright install chromium`.
-- **Windows: do not use `--reload`.** With `--reload`, uvicorn switches to a selector event loop that cannot launch Chromium (`NotImplementedError`, `DOM context length: 0`). It also restarts whenever a test script is written to `playwright_scripts/`, which kills the running test (`Script exited with code 3221225786`), and the restart can fail with `WinError 87`. Run `uv run uvicorn app.main:app --port 8000` and restart it manually after code changes. See "When to use `--reload` (Windows)" in Part E.
+- **Windows: do not use `--reload` for browser features** → see "When to use `--reload` (Windows)" in Part E.

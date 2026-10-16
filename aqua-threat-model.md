@@ -27,8 +27,8 @@ Open questions: Is the first deployment local-only or internet-facing? Is multi-
 - Browser: React/Vite SPA with local persisted auth and optional route JWT state (`frontend/src/App.jsx`, `frontend/src/api/client.js`).
 - API server: FastAPI/Uvicorn routes and lifespan-managed Mongo connection (`backend/app/main.py`, `backend/app/api/v1/router.py`).
 - Persistence: Motor/MongoDB repositories for projects and project-name-derived test collections (`backend/app/db/mongodb.py`, `backend/app/db/repositories/`).
-- AI and RAG: OpenAI-compatible LM Studio/Groq clients and local Chroma/HuggingFace embeddings (`backend/app/core/llm/`, `backend/app/core/rag/`).
-- UI test runner: Playwright browser scraping, LLM/deterministic script generation, Python subprocess execution, and artifact output (`backend/app/core/browser/`, `backend/app/services/playwright_generator.py`, `backend/app/services/playwright_runner.py`).
+- AI and RAG: OpenAI-compatible LM Studio/Groq clients (rate-limit retry, daily-limit model fallback, concurrency limit) and local Chroma with ONNX all-MiniLM-L6-v2 embeddings (`backend/app/core/llm/`, `backend/app/core/rag/`).
+- UI test runner: Playwright browser scraping, LLM script generation with one-shot self-repair and caching of passing scripts, Python subprocess execution with a minimal UTF-8 environment, and artifact output (`backend/app/core/browser/`, `backend/app/services/playwright_generator.py`, `backend/app/services/playwright_runner.py`).
 - Security runner: passive HTTP checkers and Dockerized OWASP ZAP baseline scans (`backend/app/services/security_checkers.py`, `backend/app/services/zap_scanner.py`).
 
 ### Data flows and trust boundaries

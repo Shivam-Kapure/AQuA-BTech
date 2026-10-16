@@ -19,8 +19,10 @@ flowchart TB
     API --> LLMRoutes[LLM routes]
     Browser --> Generation[Browser generation]
     Browser --> Runs[Test execution and run services]
-    Generation --> LLM[LM Studio or Groq]
-    Generation --> RAG[Optional Chroma/RAG context]
+    Generation --> Perception[Page perception: elements, hidden flags, visible text]
+    Generation --> LLM[Groq or LM Studio via rate-limit-aware client]
+    Generation --> RAG[Chroma RAG context, ONNX MiniLM embeddings]
+    Runs --> Verdict[Verdict policy, self-repair, script cache]
     Runs --> Playwright[Playwright subprocess]
     Api --> Import[OpenAPI/Postman import]
     Import --> Catalog[Normalized operation catalog]
@@ -55,6 +57,19 @@ The frontend is a Vite/React application with React Router, Axios, and Zustand s
 - `services/` contains parsing/import, deterministic API execution, workflow execution, browser generation/execution, security checks, reporting, and the async job boundary.
 - `core/` contains authentication, URL/SSRF policy, browser control, LLM clients, and RAG helpers.
 
+## Browser-testing flow
+
+1. **Perception** — Playwright loads the target (`domcontentloaded`, then at most 5 s for network idle), `dom_parser` extracts interactive elements (capped at 80 elements / 6,000 characters, elements hidden on first load flagged `hidden='initially'`) and a visible-text excerpt (≤1,500 characters, nav/footer removed). Elements are indexed in Chroma for script generation.
+2. **Generation** — the LLM produces cases in batches of five (Quick 5, Standard 10, Detailed 20), each batch with its own focus and the names already generated. AQuA assigns IDs `TC001…`. The project's description (the "Short prompt") is passed as authoritative context to generation, script writing and verdicts.
+3. **Script writing** — the LLM writes a Playwright script per case with RAG selectors and prompt rules (strict-mode-safe locators, no guessed message wording, real Playwright APIs only, self-registration when sign-up exists, `domcontentloaded` navigation).
+4. **Execution** — the script runs in a subprocess using the backend's Python, a minimal environment (UTF-8, no application secrets) and the run timeout.
+5. **Verdict** — a failing script is `failed` with its real error; a passing script with assertions is `passed`; only assertion-free scripts are judged by the LLM on visible (hidden-element-aware) page text. Scripts asking for inputs become `waiting` ("Need action"); asking again for inputs already supplied is reported as `failed`.
+6. **Self-repair and cache** — failures caused by the script itself (strict-mode violations, `TypeError`, invalid keyword arguments, a value used as a selector, …) are regenerated once with the error as feedback (`llm_repaired`). Passing LLM scripts are cached on the test case and reused (`cached`); a failing cached script is discarded. If no script can be written (e.g. LLM rate limit) the test fails with that reason instead of running a template script.
+
+## LLM client
+
+All LLM calls use `core/llm/openai_compat_client.py`: per-minute 429s are retried after the advertised delay, a daily cap switches to `LLM_FALLBACK_MODEL` (exhausted models are skipped for the rest of the window), at most `LLM_MAX_CONCURRENCY` requests run at once, `reasoning_effort` is sent to `gpt-oss` models, and `<think>` blocks are stripped. Provider rate limits reach clients as HTTP 503.
+
 ## Run and job lifecycle
 
 Shared statuses are `queued`, `running`, `waiting`, `passed`, `failed`, `warning`, and `cancelled`. API runs persist correlation IDs, timing, runner/generation metadata, evidence, and failure details. The current `AsyncJobQueue` provides bounded timeout, retry, and cancellation behavior inside one backend process; it is not a distributed worker and should not be horizontally scaled.
@@ -88,6 +103,8 @@ URL imports and target requests accept only HTTP(S), validate host policy and DN
 
 ## Deployment boundaries
 
-The default Compose stack contains MongoDB, the backend, and an Nginx-served frontend. LM Studio/Groq is external and optional unless strict LLM readiness is enabled. ZAP is an opt-in container profile. Keep `AUTH_SECRET_KEY` in the environment or a managed secret store; do not commit runtime `.env` files.
+The default Compose stack contains MongoDB, the backend, and an Nginx-served frontend. LM Studio/Groq is external and optional unless strict LLM readiness is enabled. ZAP is an opt-in container profile.
+
+The cloud deployment runs the frontend on Vercel (with `/api/*` rewritten to the backend, so the browser stays same-origin), the backend container on Google Cloud Run (max one instance because the job queue is process-local; disk is ephemeral), the Circle Social demo target on Render, and MongoDB on Atlas. See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md). Keep `AUTH_SECRET_KEY` in the environment or a managed secret store; do not commit runtime `.env` files.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for commands, health checks, scaling limitations, and security notes.

@@ -1,4 +1,27 @@
-# LM Studio setup and how to test
+# LLM setup and how to test
+
+## Default: Groq (cloud)
+
+The default provider is Groq. In `backend/.env`:
+
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...
+LLM_MODEL=openai/gpt-oss-120b
+AGENT_LLM_MODEL=openai/gpt-oss-120b
+LLM_FALLBACK_MODEL=openai/gpt-oss-20b
+LLM_REASONING_EFFORT=low
+LLM_MAX_CONCURRENCY=2
+```
+
+- `LLM_MODEL` is used for test-case, API-case and security-case generation; `AGENT_LLM_MODEL` for Playwright script generation, the pass/fail verdict and the agent.
+- Per-minute rate limits are retried automatically; when a model hits its daily cap, requests switch to `LLM_FALLBACK_MODEL` (a comma-separated chain is allowed).
+- `LLM_REASONING_EFFORT` is sent only to `gpt-oss` models (fewer hidden reasoning tokens).
+- Full local and cloud instructions: [`docs/DEPLOYMENT_GUIDE.md`](../../docs/DEPLOYMENT_GUIDE.md).
+
+## Alternative: LM Studio (local)
+
+Set `LLM_PROVIDER=lmstudio` and follow the sections below.
 
 ## Which model is used where
 
@@ -9,7 +32,7 @@
 | **Agent orchestration** (POST `/api/v1/agent/run-once`) | **Phi** | Same as above |
 
 - **Llama** = test case generation only (via `get_llm_client()` → `LLM_MODEL`).
-- **Phi** = Playwright script generation + agent (via `get_agent_llm_client()` / LangChain with `AGENT_LLM_MODEL`).
+- **Phi** = Playwright script generation + agent (via `get_agent_llm_client()` with `AGENT_LLM_MODEL`).
 
 ## Single LM Studio URL (one server, both models)
 
@@ -43,9 +66,10 @@ LM Studio selects the model by the request **model** parameter. Use one URL; set
 
 ```bash
 cd backend
-# If using venv: source .venv/bin/activate
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --port 8000
 ```
+
+On Windows, do not use `--reload` while generating or running browser tests: it prevents Chromium from launching and restarts the server when scripts are written. Use `--reload --reload-dir app` only for non-browser work.
 
 ### 2. Install Playwright browser (once)
 
@@ -86,7 +110,7 @@ The backend sends `model=AGENT_LLM_MODEL` (Phi) to the same LM Studio URL:
 curl -X POST http://localhost:8000/api/v1/test/Example/TC001
 ```
 
-Response will include `"status": "passed"` or `"status": "failed"` and, if failed, `"failure_reason"`. This flow uses **Phi** to generate the Playwright script, then runs the script; pass/fail is from the actual run, not an LLM decision.
+Response will include `"status": "passed"` or `"status": "failed"` and, if failed, `"failure_reason"`. This flow uses the agent model to generate the Playwright script, then runs the script; pass/fail comes from the actual run (an LLM verdict is used only when a passing script contains no assertions). Script bugs (e.g. strict-mode locator violations) are repaired once automatically (`generation_mode: llm_repaired`), and passing scripts are cached (`generation_mode: cached`).
 
 ### 7. (Optional) Agent run-once (Phi)
 
@@ -100,7 +124,7 @@ Uses **Phi** to decide whether to generate tests; test generation itself still u
 
 ## Quick checklist
 
-- [ ] LM Studio server running (e.g. port 1234) with both models available.
-- [ ] `.env` has `LLM_MODEL` and `AGENT_LLM_MODEL` set to exact names from LM Studio.
+- [ ] Groq: `GROQ_API_KEY` set and `LLM_PROVIDER=groq` — or LM Studio server running (e.g. port 1234) with both models available.
+- [ ] `.env` has `LLM_MODEL` and `AGENT_LLM_MODEL` set to exact model names (Groq: `openai/gpt-oss-120b`).
 - [ ] `playwright install chromium` has been run.
 - [ ] MongoDB is running.

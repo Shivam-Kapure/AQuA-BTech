@@ -29,16 +29,28 @@ We integrated OWASP ZAP as an optional, non-destructive security scanner using D
 - **Integration:** The `zap_report.json` is parsed and mapped directly into the existing `SecurityTestCaseInDB` schema, allowing ZAP alerts to be viewed alongside custom generated tests.
 - **API:** Added `POST /api/v1/security/zap-scan/{project_name}`.
 
+### Stage 4: Target resolution and generation context
+- **Generation context:** besides the DOM elements, the prompt includes a visible-text excerpt of the page and, when the site publishes `/openapi.json` (or `/swagger.json`), its API endpoints marked *public* or *requires authentication*, so authentication checks target endpoints that should be protected.
+- **IDs and types:** AQuA assigns IDs `SEC001…` itself and normalizes `test_type` values (e.g. `headers` → `security_headers`, `xss` → `input_validation`).
+- **Targets:** LLM-written targets are resolved before running — absolute URLs are kept, paths such as `/api/auth/me` are joined to the project URL, and descriptions such as "Login form" fall back to the page URL.
+- **Authentication check:** a public HTML page answering 200 is reported as `WARNING` (confirm it should be public) rather than `FAIL`; JSON/API endpoints answering 200 anonymously remain `FAIL`.
+- **Robustness:** invalid JSON from the LLM gets one self-correction round.
+
+### Stage 5: ZAP behaviour
+- Before scanning, AQuA checks that Docker is installed and running; otherwise the endpoint returns **503** with a clear message.
+- Local targets (`localhost`, `127.0.0.1`) are rewritten to `host.docker.internal` so the container can reach them.
+
 ---
 
 ## 2. How to Test Locally
 
-Ensure your FastAPI server is running. You will also need LM Studio (or your configured LLM provider) running for Step 1, and Docker running for Step 3.
+Ensure your FastAPI server is running. You will also need your configured LLM provider (Groq by default, or LM Studio) for Step 1, and Docker running for Step 3.
 
 ```bash
 cd backend
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --port 8000
 ```
+(On Windows avoid `--reload` here: it prevents Chromium from launching during generation.)
 
 ### Test Step 1: Generate Security Tests
 First, generate the security tests for a project. This also sets the target URL for the project in the database.
