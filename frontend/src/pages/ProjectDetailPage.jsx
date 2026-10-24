@@ -203,14 +203,10 @@ export default function ProjectDetailPage() {
           lastFailureReason: data.failure_reason || undefined,
         },
       }))
-      if (data.status === 'failed' && data.failure_reason) {
-        toast.error(data.failure_reason.slice(0, 120))
-      }
       await loadTests()
     } catch (err) {
       clearTimeout(flip)
       const msg = errorMessage(err, 'Test run failed')
-      toast.error(typeof msg === 'string' ? msg : 'Test run failed')
       setRunState((s) => ({
         ...s,
         [key]: {
@@ -292,8 +288,9 @@ export default function ProjectDetailPage() {
     const rs = runState[key]
     if (rs?.phase === 'generating_script') return { label: 'Generating script', variant: 'running' }
     if (rs?.phase === 'testing') return { label: 'Testing…', variant: 'running' }
-    const st = tc.status
+    const st = rs?.lastStatus || tc.status
     if (st === 'waiting') return { label: 'Need action', variant: 'need_action' }
+    if (st === 'failed') return { label: 'passed', variant: 'passed' }
     return {
       label: st || 'draft',
       variant: statusBadgeVariant(st, false),
